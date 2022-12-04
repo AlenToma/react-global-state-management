@@ -1,0 +1,25 @@
+{
+  "name": "react-global-state-management",
+  "version": "1.0.0",
+  "description": "Global statemanagement with subscribing events and custom hooks",
+  "author": "AlenToma",
+  "license": "MIT",
+  "repository": "AlenToma/react-global-state-management",
+  "main": "dist/index.js",
+  "module": "dist/index.modern.js",
+  "source": "src/index.tsx",
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {},
+  "peerDependencies": {
+    "react": "*"
+  },
+  "devDependencies": {
+    "@types/react": "^16.9.27",
+    "typescript": "^3.7.5"
+  },
+  "files": [
+    "dist"
+  ]
+}
