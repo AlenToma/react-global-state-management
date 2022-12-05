@@ -208,17 +208,29 @@ class GlobalState<T> {
 
 const getColumns = (fn: Function, skipFirst?: boolean) => {
   var str = fn.toString();
+  let colName = '';
   if (str.indexOf('.') !== -1 && skipFirst !== false) {
-    str = str.substring(str.indexOf('.') + 1);
+    colName = str
+      .substring(str.indexOf('['), str.indexOf('.'))
+      .replace('[', '');
   }
   if (str.indexOf('[') !== -1) {
     str = str.substring(str.indexOf('[') + 1);
   }
+
   str = str
     .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|function| /gim, '')
     .replace(/\r?\n|\r/g, '');
+
+  if (colName != '') {
+    return str.split(',').map((x) => {
+      x = x.trim();
+      if (x.indexOf(colName) === 0) return x.substring(colName.length);
+      return x;
+    });
+  }
   return str.split(',');
-};
+}
 
 class EventSubscriper {
   func: Function;

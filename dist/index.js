@@ -183,8 +183,11 @@ var GlobalState = /** @class */ (function () {
 }());
 var getColumns = function (fn, skipFirst) {
     var str = fn.toString();
+    var colName = '';
     if (str.indexOf('.') !== -1 && skipFirst !== false) {
-        str = str.substring(str.indexOf('.') + 1);
+        colName = str
+            .substring(str.indexOf('['), str.indexOf('.'))
+            .replace('[', '');
     }
     if (str.indexOf('[') !== -1) {
         str = str.substring(str.indexOf('[') + 1);
@@ -192,6 +195,14 @@ var getColumns = function (fn, skipFirst) {
     str = str
         .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|function| /gim, '')
         .replace(/\r?\n|\r/g, '');
+    if (colName != '') {
+        return str.split(',').map(function (x) {
+            x = x.trim();
+            if (x.indexOf(colName) === 0)
+                return x.substring(colName.length);
+            return x;
+        });
+    }
     return str.split(',');
 };
 var EventSubscriper = /** @class */ (function () {
