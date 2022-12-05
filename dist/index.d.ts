@@ -1,6 +1,6 @@
 declare type MutatedItems = () => any[];
 export declare type IGlobalState<T> = {
-    subscribe: (func: (item: T, props: ValueChange) => void, items?: MutatedItems) => EventSubscriper;
+    subscribe: (func: (item: T, props: ValueChange[]) => void, items?: MutatedItems) => EventSubscriper;
     hook: (items?: MutatedItems) => void;
 };
 export declare type ValueChange = {

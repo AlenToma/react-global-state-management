@@ -26,23 +26,31 @@ var GlobalState = /** @class */ (function () {
             var hooks_1 = [];
             if (!trigger)
                 trigger = function (key, oldValue, newValue) {
+                    var _a;
                     clearTimeout(timer_1);
                     var events = _this.getEvents();
                     var func = new Function("return [" + key + "]");
                     var ck = getColumns(func, false)[0];
+                    var _loop_2 = function (e) {
+                        var props = { key: key, oldValue: oldValue, newValue: newValue };
+                        if ((e[1].items.includes(ck) || e[1].items.length == 0)) {
+                            if (!caller_1.find(function (x) { return x.item == e[1]; }))
+                                caller_1.push({ item: e[1], props: [props] });
+                            else
+                                (_a = caller_1.find(function (x) { return x.item == e[1]; })) === null || _a === void 0 ? void 0 : _a.props.push(props);
+                        }
+                    };
                     for (var _i = 0, events_1 = events; _i < events_1.length; _i++) {
                         var e = events_1[_i];
-                        if ((e[1].items.includes(ck) || e[1].items.length == 0) &&
-                            !caller_1.includes(e[1]))
-                            caller_1.push(e[1]);
+                        _loop_2(e);
                     }
-                    for (var _a = 0, _b = __hooks.get(_this) || []; _a < _b.length; _a++) {
-                        var e = _b[_a];
+                    for (var _b = 0, _c = __hooks.get(_this) || []; _b < _c.length; _b++) {
+                        var e = _c[_b];
                         if ((e[3].includes(ck) || e[3].length == 0) && !hooks_1.includes(e))
                             hooks_1.push(e);
                     }
                     timer_1 = setTimeout(function () {
-                        caller_1.forEach(function (x) { return x.func(_this, { key: key, oldValue: oldValue, newValue: newValue }); });
+                        caller_1.forEach(function (x) { return x.item.func(_this, x.props); });
                         hooks_1.forEach(function (x) {
                             x[0] = x[0] + 1;
                             x[1](x[0]);
