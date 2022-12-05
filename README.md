@@ -76,14 +76,14 @@ export default function App() {
 ## Properties and events
 Rebuild the component when a change happened
 ```js
-hook() OR hook(()=> [data.item.counter])
+hook() OR hook(()=> [data.item.counter,..])
 ```
 
 Subscribe to changes when the global data change. This works like useEffect except You will have more control over you updates and this will not trigger rebuild
 ```js
 // global
 data.subscribe(
-    (item, {key, oldValue, newValue}) => {
+    (item, props) => {
       console.log('item.item2.counter Changed in TTX2 component');
     }
   ); 
@@ -92,10 +92,10 @@ data.subscribe(
   
  // Only when item.counter
   data.subscribe(
-    (item, {key, oldValue, newValue}) => {
+    (item, props) => {
       console.log('item.item2.counter Changed in TTX2 component');
     },
-    () => [data.item.counter]
+    () => [data.item.counter,..]
   );  
   
   ```

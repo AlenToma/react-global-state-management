@@ -9,7 +9,7 @@ type MutatedItems = () => any[];
 let ids = 0;
 export type IGlobalState<T> = {
   subscribe: (
-    func: (item: T, props: ValueChange) => void,
+    func: (item: T, props: ValueChange[]) => void,
     items?: MutatedItems
   ) => EventSubscriper;
   hook: (items?: MutatedItems) => void;
@@ -22,7 +22,7 @@ export type ValueChange = {
 };
 
 class GlobalState<T> {
-  subscribe(func: (item: T, props: ValueChange) => void, items?: () => any[]) {
+  subscribe(func: (item: T, props: ValueChange[]) => void, items?: () => any[]) {
     const rAny = React as any;
     const ref = rAny.useRef(0);
     const events = this.getEvents();
@@ -123,7 +123,7 @@ class GlobalState<T> {
         return key;
       };
       let timer = undefined as any;
-      let caller = [] as EventSubscriper[];
+      let caller = [] as { props: ValueChange[], item: EventSubscriper }[];
       let hooks = [] as [number, Function, number, string[]][];
       if (!trigger)
         trigger = (key: string, oldValue: any, newValue: any) => {
@@ -132,11 +132,13 @@ class GlobalState<T> {
           const func = new Function(`return [${key}]`)
           const ck = getColumns(func, false)[0];
           for (const e of events) {
-            if (
-              (e[1].items.includes(ck) || e[1].items.length == 0) &&
-              !caller.includes(e[1])
-            )
-              caller.push(e[1]);
+            const props = { key, oldValue, newValue }
+            if ((e[1].items.includes(ck) || e[1].items.length == 0)) {
+              if (!caller.find(x => x.item == e[1]))
+                caller.push({ item: e[1], props: [props] });
+              else caller.find(x => x.item == e[1])?.props.push(props)
+
+            }
           }
 
           for (const e of __hooks.get(this) || []) {
@@ -145,7 +147,7 @@ class GlobalState<T> {
           }
 
           timer = setTimeout(() => {
-            caller.forEach((x) => x.func(this, { key, oldValue, newValue }));
+            caller.forEach((x) => x.item.func(this, x.props));
             hooks.forEach((x) => {
               x[0] = x[0] + 1;
               x[1](x[0]);
@@ -204,7 +206,7 @@ class GlobalState<T> {
   }
 }
 
-const getColumns = (fn: Function, skipFirst?:boolean) => {
+const getColumns = (fn: Function, skipFirst?: boolean) => {
   var str = fn.toString();
   if (str.indexOf('.') !== -1 && skipFirst !== false) {
     str = str.substring(str.indexOf('.') + 1);
