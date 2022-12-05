@@ -57,7 +57,7 @@ var GlobalState = /** @class */ (function () {
                         });
                         caller_1 = [];
                         hooks_1 = [];
-                    }, 10);
+                    }, 100);
                 };
             var keys = Object.keys(item).filter(function (x) { return !__ignoreKeys.includes(x); });
             var prototype = Object.getPrototypeOf(item);

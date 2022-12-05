@@ -2,11 +2,16 @@ import logo from './logo.svg';
 import './App.css';
 import Globalstate from 'react-global-state-management'
 const data = Globalstate({
-  counter: 0
+  counter: 0,
+  counter2: 0
 })
 
 function App() {
   data.hook();
+
+  data.subscribe((item, props)=> {
+    console.log("props", props)
+  })
   return (
     <div className="App">
       <header className="App-header">
@@ -22,14 +27,14 @@ function App() {
         >
           Learn React
         </a>
-        <a 
-         className="App-link"
-        onClick={()=> data.counter++}>
-        increase Counter: {data.counter}
-      </a>
+        <a
+          className="App-link"
+          onClick={() => data.counter = data.counter2++}>
+          increase Counter: {data.counter}
+        </a>
       </header>
 
-   
+
     </div>
   );
 }
