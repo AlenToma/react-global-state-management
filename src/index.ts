@@ -154,7 +154,7 @@ class GlobalState<T> {
             });
             caller = [];
             hooks = [];
-          }, 100);
+          }, 4);
         };
       let keys = Object.keys(item).filter((x) => !__ignoreKeys.includes(x));
       const prototype = Object.getPrototypeOf(item);
