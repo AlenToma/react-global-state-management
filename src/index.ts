@@ -1,5 +1,5 @@
 import * as React from 'react';
-const __ignoreKeys = ['remove', 'getEvents', 'subscribe'];
+const __ignoreKeys = [] as string[];
 const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
 const __hooks = new Map<
   GlobalState<any>,
