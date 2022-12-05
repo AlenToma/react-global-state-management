@@ -1,5 +1,5 @@
 import * as React from 'react';
-const __ignoreKeys = [] as string[];
+const __ignoreKeys = ['hook', 'getEvents', 'subscribe', "unsubscribe", "addHook", "removeHook"];
 const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
 const __hooks = new Map<
   GlobalState<any>,
@@ -23,7 +23,8 @@ export type ValueChange = {
 
 class GlobalState<T> {
   subscribe(func: (item: T, props: ValueChange) => void, items?: () => any[]) {
-    const ref = React.useRef(0);
+    const rAny = React as any;
+    const ref = rAny.useRef(0);
     const events = this.getEvents();
     const event = new EventSubscriper(func, items);
 
@@ -35,7 +36,7 @@ class GlobalState<T> {
       if (e) e[1].func = func;
     }
 
-    React.useEffect(() => {
+    rAny.useEffect(() => {
       () => this.unsubscribe(ref.current);
     }, []);
 
@@ -43,8 +44,9 @@ class GlobalState<T> {
   }
 
   hook(items?: MutatedItems) {
-    const [counter, setCounter] = React.useState(0);
-    const ref = React.useRef(0);
+    const rAny = React as any;
+    const [counter, setCounter] = rAny.useState(0);
+    const ref = rAny.useRef(0);
     if (ref.current === 0) {
       ref.current = ++ids;
     }
@@ -54,7 +56,7 @@ class GlobalState<T> {
       ref.current,
       items ? getColumns(items) : [],
     ]);
-    React.useEffect(() => {
+    rAny.useEffect(() => {
       () => {
         console.log('Removed', ref.current);
         this.removeHook(ref.current);
@@ -127,9 +129,8 @@ class GlobalState<T> {
         trigger = (key: string, oldValue: any, newValue: any) => {
           clearTimeout(timer);
           const events = this.getEvents();
-          const func = new Function("name", `return [${key}]`)
+          const func = new Function(`return [${key}]`)
           const ck = getColumns(func, false)[0];
-          console.log(key, ck);
           for (const e of events) {
             if (
               (e[1].items.includes(ck) || e[1].items.length == 0) &&
@@ -205,7 +206,7 @@ class GlobalState<T> {
 
 const getColumns = (fn: Function, skipFirst?:boolean) => {
   var str = fn.toString();
-  if (str.indexOf('.') !== -1 && skipFirst!== false) {
+  if (str.indexOf('.') !== -1 && skipFirst !== false) {
     str = str.substring(str.indexOf('.') + 1);
   }
   if (str.indexOf('[') !== -1) {
@@ -227,5 +228,4 @@ class EventSubscriper {
   }
 }
 
-export default <T>(item: T) =>
-  new GlobalState<T>(item) as any as T & IGlobalState<T>;
+export default <T>(item: T) => new GlobalState<T>(item) as any as T & IGlobalState<T>;
