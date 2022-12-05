@@ -6,6 +6,7 @@ const data = Globalstate({
 })
 
 function App() {
+  data.hook();
   return (
     <div className="App">
       <header className="App-header">
@@ -21,7 +22,14 @@ function App() {
         >
           Learn React
         </a>
+        <a 
+         className="App-link"
+        onClick={()=> data.counter++}>
+        increase Counter: {data.counter}
+      </a>
       </header>
+
+   
     </div>
   );
 }
