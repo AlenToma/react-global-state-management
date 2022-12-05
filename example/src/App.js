@@ -1,6 +1,6 @@
 import logo from './logo.svg';
 import './App.css';
-import Globalstate from 'react-global-state-management'
+import Globalstate from 'react-global-state-management/dist/index'
 const data = Globalstate({
   counter: 0,
   counter2: 0
