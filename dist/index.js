@@ -6,13 +6,21 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
     return r;
 };
 import * as React from 'react';
-var __ignoreKeys = ['hook', 'getEvents', 'subscribe', "unsubscribe", "addHook", "removeHook"];
+var __ignoreKeys = [
+    'hook',
+    'getEvents',
+    'subscribe',
+    'unsubscribe',
+    'addHook',
+    'removeHook',
+];
 var __events = new Map();
 var __hooks = new Map();
 var ids = 0;
 var GlobalState = /** @class */ (function () {
-    function GlobalState(item, trigger, parentKey) {
+    function GlobalState(tItem, trigger, parentKey) {
         var _this = this;
+        var item = tItem;
         try {
             if (!parentKey)
                 parentKey = '';
@@ -33,7 +41,7 @@ var GlobalState = /** @class */ (function () {
                     var ck = getColumns(func, false)[0];
                     var _loop_2 = function (e) {
                         var props = { key: key, oldValue: oldValue, newValue: newValue };
-                        if ((e[1].items.includes(ck) || e[1].items.length == 0)) {
+                        if (e[1].items.includes(ck) || e[1].items.length == 0) {
                             if (!caller_1.find(function (x) { return x.item == e[1]; }))
                                 caller_1.push({ item: e[1], props: [props] });
                             else
@@ -57,7 +65,7 @@ var GlobalState = /** @class */ (function () {
                         });
                         caller_1 = [];
                         hooks_1 = [];
-                    }, 4);
+                    }, 100);
                 };
             var keys = Object.keys(item).filter(function (x) { return !__ignoreKeys.includes(x); });
             var prototype = Object.getPrototypeOf(item);
@@ -215,5 +223,7 @@ var EventSubscriper = /** @class */ (function () {
     }
     return EventSubscriper;
 }());
-export default (function (item) { return new GlobalState(item); });
+export default (function (item) {
+    return new GlobalState(item);
+});
 //# sourceMappingURL=index.js.map

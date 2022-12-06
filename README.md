@@ -28,7 +28,7 @@ const TTX = () => {
   // bind mutated to this component 
   // You could also have a global mutation with only "data.hook();"
   // below mean that only when data.item.item2.counter changed, it will trigger rebuild for this component.
-  data.hook(()=> [data.item.item2.counter]); 
+  data.hook(x=> [data.item.item2.counter]); 
   return <Text>counterComponentWithHook: {data.item.item2.counter}</Text>;
 };
 
@@ -37,7 +37,7 @@ const TTX2 = () => {
     (item, props) => {
       console.log('data.item.counter Changed in TTX2 component', props);
     },
-    () => [data.item.counter]
+    x => [x.item.counter]
   );
   return <Text>counterComponentWithoutHook: {data.item.counter}</Text>;
 };
@@ -76,7 +76,7 @@ export default function App() {
 ## Properties and events
 Rebuild the component when a change happened
 ```js
-hook() OR hook(()=> [data.item.counter,..])
+hook() OR hook(x=> [x.item.counter,..])
 ```
 
 Subscribe to changes when the global data change. This works like useEffect except You will have more control over you updates and this will not trigger rebuild
@@ -95,7 +95,7 @@ data.subscribe(
     (item, props) => {
       console.log('item.item2.counter Changed in TTX2 component');
     },
-    () => [data.item.counter,..]
+    x => [x.item.counter,..]
   );  
   
   ```

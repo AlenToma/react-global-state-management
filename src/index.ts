@@ -1,18 +1,25 @@
 import * as React from 'react';
-const __ignoreKeys = ['hook', 'getEvents', 'subscribe', "unsubscribe", "addHook", "removeHook"];
+const __ignoreKeys = [
+  'hook',
+  'getEvents',
+  'subscribe',
+  'unsubscribe',
+  'addHook',
+  'removeHook',
+];
 const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
 const __hooks = new Map<
   GlobalState<any>,
   [number, Function, number, string[]][]
 >();
-type MutatedItems = () => any[];
+type MutatedItems<T, B> =((x: T) => B[])
 let ids = 0;
 export type IGlobalState<T> = {
-  subscribe: (
+  subscribe: <B>(
     func: (item: T, props: ValueChange[]) => void,
-    items?: MutatedItems
+    items?: MutatedItems<T, B>
   ) => EventSubscriper;
-  hook: (items?: MutatedItems) => void;
+  hook: <B>(items?: MutatedItems<T, B>) => void;
 };
 
 export type ValueChange = {
@@ -22,7 +29,10 @@ export type ValueChange = {
 };
 
 class GlobalState<T> {
-  subscribe(func: (item: T, props: ValueChange[]) => void, items?: () => any[]) {
+  subscribe<B>(
+    func: (item: T, props: ValueChange[]) => void,
+    items?: MutatedItems<T, B>
+  ) {
     const rAny = React as any;
     const ref = rAny.useRef(0);
     const events = this.getEvents();
@@ -43,7 +53,7 @@ class GlobalState<T> {
     return this.getEvents()[this.getEvents().length - 1];
   }
 
-  hook(items?: MutatedItems) {
+  hook<B>(items?: MutatedItems<T, B>) {
     const rAny = React as any;
     const [counter, setCounter] = rAny.useState(0);
     const ref = rAny.useRef(0);
@@ -111,10 +121,11 @@ class GlobalState<T> {
   }
 
   constructor(
-    item: any,
+    tItem: T,
     trigger?: (key: string, oldValue: any, newValue: any) => void,
     parentKey?: string
   ) {
+    const item = tItem as any;
     try {
       if (!parentKey) parentKey = '';
 
@@ -123,21 +134,20 @@ class GlobalState<T> {
         return key;
       };
       let timer = undefined as any;
-      let caller = [] as { props: ValueChange[], item: EventSubscriper }[];
+      let caller = [] as { props: ValueChange[]; item: EventSubscriper }[];
       let hooks = [] as [number, Function, number, string[]][];
       if (!trigger)
         trigger = (key: string, oldValue: any, newValue: any) => {
           clearTimeout(timer);
           const events = this.getEvents();
-          const func = new Function(`return [${key}]`)
+          const func = new Function(`return [${key}]`);
           const ck = getColumns(func, false)[0];
           for (const e of events) {
-            const props = { key, oldValue, newValue }
-            if ((e[1].items.includes(ck) || e[1].items.length == 0)) {
-              if (!caller.find(x => x.item == e[1]))
+            const props = { key, oldValue, newValue };
+            if (e[1].items.includes(ck) || e[1].items.length == 0) {
+              if (!caller.find((x) => x.item == e[1]))
                 caller.push({ item: e[1], props: [props] });
-              else caller.find(x => x.item == e[1])?.props.push(props)
-
+              else caller.find((x) => x.item == e[1])?.props.push(props);
             }
           }
 
@@ -154,7 +164,7 @@ class GlobalState<T> {
             });
             caller = [];
             hooks = [];
-          }, 4);
+          }, 100);
         };
       let keys = Object.keys(item).filter((x) => !__ignoreKeys.includes(x));
       const prototype = Object.getPrototypeOf(item);
@@ -230,16 +240,17 @@ const getColumns = (fn: Function, skipFirst?: boolean) => {
     });
   }
   return str.split(',');
-}
+};
 
 class EventSubscriper {
   func: Function;
   items: string[];
-  constructor(func: Function, items?: () => any[]) {
+  constructor(func: Function, items?: Function) {
     this.func = func;
     if (items) this.items = getColumns(items);
     else this.items = [];
   }
 }
 
-export default <T>(item: T) => new GlobalState<T>(item) as any as T & IGlobalState<T>;
+export default <T>(item: T) =>
+  new GlobalState<T>(item) as any as T & IGlobalState<T>;
