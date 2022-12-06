@@ -28,7 +28,7 @@ const TTX = () => {
   // bind mutated to this component 
   // You could also have a global mutation with only "data.hook();"
   // below mean that only when data.item.item2.counter changed, it will trigger rebuild for this component.
-  data.hook(x=> [data.item.item2.counter]); 
+  data.hook(x=> [x.item.item2.counter]); 
   return <Text>counterComponentWithHook: {data.item.item2.counter}</Text>;
 };
 
