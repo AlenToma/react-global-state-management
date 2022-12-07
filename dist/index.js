@@ -6,6 +6,7 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
     return r;
 };
 import * as React from 'react';
+import createArray from './CustomArray';
 var __ignoreKeys = [
     'hook',
     'getEvents',
@@ -16,7 +17,7 @@ var __ignoreKeys = [
 ];
 var __events = new Map();
 var __hooks = new Map();
-var ids = 0;
+var ids = { id: 0 };
 var GlobalState = /** @class */ (function () {
     function GlobalState(tItem, trigger, parentKey) {
         var _this = this;
@@ -35,13 +36,29 @@ var GlobalState = /** @class */ (function () {
             if (!trigger)
                 trigger = function (key, oldValue, newValue) {
                     var _a;
+                    var isArray = false;
+                    var arrKey = '';
+                    var isArrayParent = function () {
+                        var t = undefined;
+                        for (var _i = 0, _a = key.split('.'); _i < _a.length; _i++) {
+                            var x = _a[_i];
+                            t = item[x];
+                            arrKey += x;
+                            if (t && Array.isArray(t) && typeof t != "string") {
+                                isArray = true;
+                                break;
+                            }
+                        }
+                    };
+                    isArrayParent();
                     clearTimeout(timer_1);
                     var events = _this.getEvents();
                     var func = new Function("return [" + key + "]");
                     var ck = getColumns(func, false)[0];
                     var _loop_2 = function (e) {
                         var props = { key: key, oldValue: oldValue, newValue: newValue };
-                        if (e[1].items.includes(ck) || e[1].items.length == 0) {
+                        if (e[1].items.includes(ck) || (isArray && e[1].items.includes(arrKey)) ||
+                            e[1].items.length == 0) {
                             if (!caller_1.find(function (x) { return x.item == e[1]; }))
                                 caller_1.push({ item: e[1], props: [props] });
                             else
@@ -54,7 +71,7 @@ var GlobalState = /** @class */ (function () {
                     }
                     for (var _b = 0, _c = __hooks.get(_this) || []; _b < _c.length; _b++) {
                         var e = _c[_b];
-                        if ((e[3].includes(ck) || e[3].length == 0) && !hooks_1.includes(e))
+                        if ((e[3].includes(ck) || ((isArray && e[3].includes(arrKey))) || e[3].length == 0) && !hooks_1.includes(e))
                             hooks_1.push(e);
                     }
                     timer_1 = setTimeout(function () {
@@ -73,6 +90,33 @@ var GlobalState = /** @class */ (function () {
                 var ignoreKyes_1 = Object.getOwnPropertyNames(Object.prototype);
                 keys = __spreadArrays(keys, Object.getOwnPropertyNames(prototype)).filter(function (x) { return !ignoreKyes_1.includes(x); });
             }
+            var onCreate_1 = function (key, data) {
+                var r = [];
+                if (typeof data === 'string')
+                    data = [data];
+                for (var _i = 0, data_1 = data; _i < data_1.length; _i++) {
+                    var x = data_1[_i];
+                    if (x) {
+                        if (Array.isArray(x) && typeof x !== 'string') {
+                            if ((x.length > 0 && x.getType == undefined) ||
+                                x.getType() != 'CustomeArray')
+                                createArray(x, onCreate_1.bind(_this)).forEach(function (a) { return r.push(a); }, trigger, key);
+                        }
+                        else {
+                            if (typeof x === 'object' &&
+                                !Array.isArray(x) &&
+                                typeof x !== 'string') {
+                                r.push(new GlobalState(x, trigger, prKey_1(key)));
+                            }
+                            else
+                                r.push(x);
+                        }
+                    }
+                    else
+                        r.push(x);
+                }
+                return r;
+            };
             var _loop_1 = function (key) {
                 var val = item[key];
                 if (typeof val === 'object' &&
@@ -82,9 +126,14 @@ var GlobalState = /** @class */ (function () {
                     typeof val !== 'string') {
                     val = new GlobalState(val, trigger, prKey_1(key));
                 }
+                else if (val && Array.isArray(val) && typeof val !== 'string') {
+                    val = createArray(val, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), key);
+                }
                 Object.defineProperty(this_1, key, {
                     get: function () { return val; },
                     set: function (value) {
+                        if (value == val)
+                            return;
                         var oValue = value;
                         if (typeof value === 'object' &&
                             !Array.isArray(value) &&
@@ -93,10 +142,15 @@ var GlobalState = /** @class */ (function () {
                             typeof value !== 'string') {
                             value = new GlobalState(oValue, trigger, prKey_1(key));
                         }
+                        else if (value &&
+                            Array.isArray(value) &&
+                            typeof value !== 'string') {
+                            value = createArray(oValue, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key);
+                        }
                         var oldValue = item[key];
                         item[key] = oValue;
                         val = value;
-                        if (trigger)
+                        if (trigger && value !== oldValue)
                             trigger(prKey_1(key), oldValue, value);
                     },
                     enumerable: true
@@ -120,7 +174,7 @@ var GlobalState = /** @class */ (function () {
         var events = this.getEvents();
         var event = new EventSubscriper(func, items);
         if (ref.current === 0) {
-            ref.current = ++ids;
+            ref.current = ++ids.id;
             events.push([ref.current, event]);
         }
         else {
@@ -129,7 +183,9 @@ var GlobalState = /** @class */ (function () {
                 e[1].func = func;
         }
         rAny.useEffect(function () {
-            (function () { return _this.unsubscribe(ref.current); });
+            return function () {
+                _this.unsubscribe(ref.current);
+            };
         }, []);
         return this.getEvents()[this.getEvents().length - 1];
     };
@@ -139,7 +195,7 @@ var GlobalState = /** @class */ (function () {
         var _a = rAny.useState(0), counter = _a[0], setCounter = _a[1];
         var ref = rAny.useRef(0);
         if (ref.current === 0) {
-            ref.current = ++ids;
+            ref.current = ++ids.id;
         }
         this.addHook([
             counter,
@@ -148,10 +204,9 @@ var GlobalState = /** @class */ (function () {
             items ? getColumns(items) : [],
         ]);
         rAny.useEffect(function () {
-            (function () {
-                console.log('Removed', ref.current);
+            return function () {
                 _this.removeHook(ref.current);
-            });
+            };
         }, []);
     };
     GlobalState.prototype.unsubscribe = function (item) {

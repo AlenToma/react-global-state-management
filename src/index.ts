@@ -1,4 +1,5 @@
 import * as React from 'react';
+import createArray from './CustomArray'
 const __ignoreKeys = [
   'hook',
   'getEvents',
@@ -7,13 +8,14 @@ const __ignoreKeys = [
   'addHook',
   'removeHook',
 ];
+
 const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
 const __hooks = new Map<
   GlobalState<any>,
   [number, Function, number, string[]][]
 >();
-type MutatedItems<T, B> =((x: T) => B[])
-let ids = 0;
+type MutatedItems<T, B> = (x: T) => B[];
+const ids = { id: 0 };
 export type IGlobalState<T> = {
   subscribe: <B>(
     func: (item: T, props: ValueChange[]) => void,
@@ -39,7 +41,7 @@ class GlobalState<T> {
     const event = new EventSubscriper(func, items);
 
     if (ref.current === 0) {
-      ref.current = ++ids;
+      ref.current = ++ids.id;
       events.push([ref.current, event]);
     } else {
       const e = events.find((x) => x[0] === ref.current);
@@ -47,7 +49,9 @@ class GlobalState<T> {
     }
 
     rAny.useEffect(() => {
-      () => this.unsubscribe(ref.current);
+      return () => {
+        this.unsubscribe(ref.current);
+      };
     }, []);
 
     return this.getEvents()[this.getEvents().length - 1];
@@ -58,7 +62,7 @@ class GlobalState<T> {
     const [counter, setCounter] = rAny.useState(0);
     const ref = rAny.useRef(0);
     if (ref.current === 0) {
-      ref.current = ++ids;
+      ref.current = ++ids.id;
     }
     this.addHook([
       counter,
@@ -67,8 +71,7 @@ class GlobalState<T> {
       items ? getColumns(items) : [],
     ]);
     rAny.useEffect(() => {
-      () => {
-        console.log('Removed', ref.current);
+      return () => {
         this.removeHook(ref.current);
       };
     }, []);
@@ -138,13 +141,30 @@ class GlobalState<T> {
       let hooks = [] as [number, Function, number, string[]][];
       if (!trigger)
         trigger = (key: string, oldValue: any, newValue: any) => {
+          let isArray = false;
+          let arrKey = '';
+          const isArrayParent = () => {
+            let t = undefined;
+            for (let x of key.split('.')) {
+              t = item[x];
+              arrKey += x;
+              if (t && Array.isArray(t) && typeof t != "string") {
+                isArray = true;
+                break;
+              }
+            }
+          };
+          isArrayParent();
           clearTimeout(timer);
           const events = this.getEvents();
           const func = new Function(`return [${key}]`);
           const ck = getColumns(func, false)[0];
           for (const e of events) {
             const props = { key, oldValue, newValue };
-            if (e[1].items.includes(ck) || e[1].items.length == 0) {
+            if (
+              e[1].items.includes(ck) || (isArray && e[1].items.includes(arrKey)) ||
+              e[1].items.length == 0
+            ) {
               if (!caller.find((x) => x.item == e[1]))
                 caller.push({ item: e[1], props: [props] });
               else caller.find((x) => x.item == e[1])?.props.push(props);
@@ -152,7 +172,7 @@ class GlobalState<T> {
           }
 
           for (const e of __hooks.get(this) || []) {
-            if ((e[3].includes(ck) || e[3].length == 0) && !hooks.includes(e))
+            if ((e[3].includes(ck) || ((isArray && e[3].includes(arrKey))) || e[3].length == 0) && !hooks.includes(e))
               hooks.push(e);
           }
 
@@ -175,7 +195,34 @@ class GlobalState<T> {
           (x) => !ignoreKyes.includes(x)
         );
       }
-
+      const onCreate = (key: string, data: any) => {
+        const r = [];
+        if (typeof data === 'string') data = [data];
+        for (let x of data) {
+          if (x) {
+            if (Array.isArray(x) && typeof x !== 'string') {
+              if (
+                (x.length > 0 && (x as any).getType == undefined) ||
+                (x as any).getType() != 'CustomeArray'
+              )
+                createArray(x, onCreate.bind(this)).forEach(
+                  (a: any) => r.push(a),
+                  trigger,
+                  key
+                );
+            } else {
+              if (
+                typeof x === 'object' &&
+                !Array.isArray(x) &&
+                typeof x !== 'string'
+              ) {
+                r.push(new GlobalState(x, trigger, prKey(key)));
+              } else r.push(x);
+            }
+          } else r.push(x);
+        }
+        return r;
+      };
       for (let key of keys) {
         let val = item[key];
         if (
@@ -186,11 +233,15 @@ class GlobalState<T> {
           typeof val !== 'string'
         ) {
           val = new GlobalState(val, trigger, prKey(key));
+        } else if (val && Array.isArray(val) && typeof val !== 'string') {
+          val = createArray(val, onCreate.bind(this), trigger?.bind(this), key);
         }
 
         Object.defineProperty(this, key, {
           get: () => val,
           set: (value) => {
+            if (value == val)
+              return;
             let oValue = value;
             if (
               typeof value === 'object' &&
@@ -200,11 +251,22 @@ class GlobalState<T> {
               typeof value !== 'string'
             ) {
               value = new GlobalState(oValue, trigger, prKey(key));
+            } else if (
+              value &&
+              Array.isArray(value) &&
+              typeof value !== 'string'
+            ) {
+              value = createArray(
+                oValue,
+                onCreate.bind(this),
+                trigger?.bind(this),
+                key
+              );
             }
             const oldValue = item[key];
             item[key] = oValue;
             val = value;
-            if (trigger) trigger(prKey(key), oldValue, value);
+            if (trigger && value !== oldValue) trigger(prKey(key), oldValue, value);
           },
           enumerable: true,
         });
@@ -252,5 +314,6 @@ class EventSubscriper {
   }
 }
 
-export default <T>(item: T) =>
-  new GlobalState<T>(item) as any as T & IGlobalState<T>;
+export default <T>(item: T) => {
+  return new GlobalState<T>(item) as any as T & IGlobalState<T>;
+};

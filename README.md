@@ -22,6 +22,7 @@ import GlobalState from 'react-global-state-management';
 const data = GlobalState({
   text: 'someText',
   item: { counter: 0, item2: { counter: 0 } },
+  arr:[{test: 0}]
 });
 
 const TTX = () => {
@@ -65,6 +66,14 @@ export default function App() {
         title="inc counter2"
         onPress={() => {
           data.item.item2.counter++;
+        }}
+      />
+
+        <Button
+        title="inc array"
+        onPress={() => {
+          data.arr[0].test++;
+          data.arr.push({test:5}) // this will also trigger change
         }}
       />
     </View>

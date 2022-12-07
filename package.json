@@ -1,10 +1,18 @@
 {
   "name": "react-global-state-management",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Global statemanagement with subscribing events and custom hooks",
   "author": "AlenToma",
   "license": "MIT",
   "repository": "AlenToma/react-global-state-management",
+  "keywords": [
+    "react",
+    "react-native",
+    "useState",
+    "global",
+    "react-global-state-management",
+    "stateManagemant"
+  ],
   "main": "dist/index.js",
   "module": "dist/index.modern.js",
   "source": "src/index.ts",
@@ -20,6 +28,6 @@
   },
   "files": [
     "dist",
-     "src"
+    "src"
   ]
 }

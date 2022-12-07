@@ -1,4 +1,4 @@
-declare type MutatedItems<T, B> = ((x: T) => B[]);
+declare type MutatedItems<T, B> = (x: T) => B[];
 export declare type IGlobalState<T> = {
     subscribe: <B>(func: (item: T, props: ValueChange[]) => void, items?: MutatedItems<T, B>) => EventSubscriper;
     hook: <B>(items?: MutatedItems<T, B>) => void;
