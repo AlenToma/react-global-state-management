@@ -149,10 +149,10 @@ class GlobalState<T> {
           return key
             .split('.')
             .reverse()
-            .filter((x, i) => i > 0)
+            .filter((_, i) => i > 0)
             .reverse()
             .join();
-        return '';
+        return key;
       };
       let timer = undefined as any;
       let caller = [] as { props: ValueChange[]; item: EventSubscriper }[];

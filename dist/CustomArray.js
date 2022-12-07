@@ -5,14 +5,17 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
             r[k] = a[j];
     return r;
 };
-export default function createArray(dt, onCreate, trigger, key) {
+export default function createData(dt, onCreate, trigger, key, execludeComponentsFromMutation) {
     var pr = Array.prototype;
     var prCopy = __spreadArrays(pr);
+    var created = false;
     function IArray(dt) {
         var _this = this;
         if (dt)
             dt.forEach(function (x) { return _this.push(x); });
+        created = true;
     }
+    prCopy.getExecludeComponentsFromMutation = function () { return execludeComponentsFromMutation; };
     prCopy.getType = function () { return 'CustomeArray'; };
     prCopy.getKey = function () { return key; };
     prCopy.push = function () {
@@ -22,8 +25,8 @@ export default function createArray(dt, onCreate, trigger, key) {
             data[_i] = arguments[_i];
         }
         var oValue = __spreadArrays(this);
-        var r = (_a = pr.push).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
-        if (oValue.length !== this.length)
+        var r = (_a = pr.push).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
+        if (oValue.length !== this.length && created)
             trigger(this.getKey(), oValue, this);
         return r;
     };
@@ -33,7 +36,7 @@ export default function createArray(dt, onCreate, trigger, key) {
         for (var _i = 0; _i < arguments.length; _i++) {
             data[_i] = arguments[_i];
         }
-        return (_a = pr.concat).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
+        return (_a = pr.concat).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
     };
     prCopy.shift = function () {
         var oValue = __spreadArrays(this);
@@ -49,7 +52,7 @@ export default function createArray(dt, onCreate, trigger, key) {
             data[_i] = arguments[_i];
         }
         var oValue = __spreadArrays(this);
-        var r = (_a = pr.unshift).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
+        var r = (_a = pr.unshift).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;

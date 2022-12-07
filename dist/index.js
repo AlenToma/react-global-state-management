@@ -19,8 +19,13 @@ var __events = new Map();
 var __hooks = new Map();
 var ids = { id: 0 };
 var GlobalState = /** @class */ (function () {
-    function GlobalState(tItem, trigger, parentKey) {
+    function GlobalState(tItem, trigger, parentKey, execludeComponentsFromMutations, alreadyCloned) {
         var _this = this;
+        this.isGlobalState = function () {
+            return true;
+        };
+        if (!alreadyCloned)
+            alreadyCloned = new Map();
         var item = tItem;
         try {
             if (!parentKey)
@@ -28,6 +33,17 @@ var GlobalState = /** @class */ (function () {
             var prKey_1 = function (key) {
                 if (parentKey != '')
                     return parentKey + '.' + key;
+                return key;
+            };
+            var readablePrKey_1 = function (key) { return prKey_1(key).replace(/\./g, ''); };
+            var readableParentKey_1 = function (key) {
+                if (key.indexOf('.') != -1)
+                    return key
+                        .split('.')
+                        .reverse()
+                        .filter(function (_, i) { return i > 0; })
+                        .reverse()
+                        .join();
                 return key;
             };
             var timer_1 = undefined;
@@ -44,7 +60,7 @@ var GlobalState = /** @class */ (function () {
                             var x = _a[_i];
                             t = item[x];
                             arrKey += x;
-                            if (t && Array.isArray(t) && typeof t != "string") {
+                            if (t && Array.isArray(t)) {
                                 isArray = true;
                                 break;
                             }
@@ -57,7 +73,9 @@ var GlobalState = /** @class */ (function () {
                     var ck = getColumns(func, false)[0];
                     var _loop_2 = function (e) {
                         var props = { key: key, oldValue: oldValue, newValue: newValue };
-                        if (e[1].items.includes(ck) || (isArray && e[1].items.includes(arrKey)) ||
+                        if (e[1].items.includes(ck) ||
+                            (isArray && e[1].items.includes(arrKey)) ||
+                            e[1].items.includes(readableParentKey_1(key)) ||
                             e[1].items.length == 0) {
                             if (!caller_1.find(function (x) { return x.item == e[1]; }))
                                 caller_1.push({ item: e[1], props: [props] });
@@ -71,7 +89,11 @@ var GlobalState = /** @class */ (function () {
                     }
                     for (var _b = 0, _c = __hooks.get(_this) || []; _b < _c.length; _b++) {
                         var e = _c[_b];
-                        if ((e[3].includes(ck) || ((isArray && e[3].includes(arrKey))) || e[3].length == 0) && !hooks_1.includes(e))
+                        if ((e[3].includes(ck) ||
+                            (isArray && e[3].includes(arrKey)) ||
+                            e[3].includes(readableParentKey_1(key)) ||
+                            e[3].length == 0) &&
+                            !hooks_1.includes(e))
                             hooks_1.push(e);
                     }
                     timer_1 = setTimeout(function () {
@@ -90,7 +112,9 @@ var GlobalState = /** @class */ (function () {
                 var ignoreKyes_1 = Object.getOwnPropertyNames(Object.prototype);
                 keys = __spreadArrays(keys, Object.getOwnPropertyNames(prototype)).filter(function (x) { return !ignoreKyes_1.includes(x); });
             }
-            var onCreate_1 = function (key, data) {
+            var onCreate_1 = function (key, data, execludeComponentsFromMutation) {
+                if (!alreadyCloned)
+                    alreadyCloned = new Map();
                 var r = [];
                 if (typeof data === 'string')
                     data = [data];
@@ -100,13 +124,16 @@ var GlobalState = /** @class */ (function () {
                         if (Array.isArray(x) && typeof x !== 'string') {
                             if ((x.length > 0 && x.getType == undefined) ||
                                 x.getType() != 'CustomeArray')
-                                createArray(x, onCreate_1.bind(_this)).forEach(function (a) { return r.push(a); }, trigger, key);
+                                createArray(x, onCreate_1.bind(_this)).forEach(function (a) { return r.push(a); }, trigger, key, execludeComponentsFromMutation);
                         }
                         else {
                             if (typeof x === 'object' &&
                                 !Array.isArray(x) &&
-                                typeof x !== 'string') {
-                                r.push(new GlobalState(x, trigger, prKey_1(key)));
+                                typeof x !== 'string' &&
+                                !isExecluded_1(key)) {
+                                alreadyCloned.set(x, x);
+                                alreadyCloned.set(x, new GlobalState(x, trigger, prKey_1(key), execludeComponentsFromMutation, alreadyCloned));
+                                r.push(alreadyCloned.get(x));
                             }
                             else
                                 r.push(x);
@@ -117,6 +144,14 @@ var GlobalState = /** @class */ (function () {
                 }
                 return r;
             };
+            var isExecluded_1 = function (key) {
+                if (!execludeComponentsFromMutations)
+                    return false;
+                if (execludeComponentsFromMutations.includes(readablePrKey_1(key)) ||
+                    (parentKey && execludeComponentsFromMutations.includes(parentKey)))
+                    return true;
+                return false;
+            };
             var _loop_1 = function (key) {
                 var val = item[key];
                 if (typeof val === 'object' &&
@@ -124,28 +159,42 @@ var GlobalState = /** @class */ (function () {
                     val !== undefined &&
                     val !== null &&
                     typeof val !== 'string') {
-                    val = new GlobalState(val, trigger, prKey_1(key));
+                    if (!isExecluded_1(key)) {
+                        if (!alreadyCloned.has(val)) {
+                            alreadyCloned.set(val, val);
+                            alreadyCloned.set(val, new GlobalState(val, trigger, prKey_1(key), execludeComponentsFromMutations, alreadyCloned));
+                            val = alreadyCloned.get(val);
+                        }
+                        else
+                            val = alreadyCloned.get(val);
+                    }
                 }
                 else if (val && Array.isArray(val) && typeof val !== 'string') {
-                    val = createArray(val, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), key);
+                    val = createArray(val, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), key, execludeComponentsFromMutations);
                 }
                 Object.defineProperty(this_1, key, {
                     get: function () { return val; },
                     set: function (value) {
+                        var oValue = value;
                         if (value == val)
                             return;
-                        var oValue = value;
+                        if (!value.isGlobalState)
+                            alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned["delete"](oValue);
                         if (typeof value === 'object' &&
                             !Array.isArray(value) &&
                             value !== undefined &&
                             value !== null &&
                             typeof value !== 'string') {
-                            value = new GlobalState(oValue, trigger, prKey_1(key));
+                            if (!isExecluded_1(key) && !value.isGlobalState) {
+                                alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.set(value, value);
+                                alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.set(value, new GlobalState(oValue, trigger, prKey_1(key), execludeComponentsFromMutations, alreadyCloned));
+                                value = alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.get(value);
+                            }
                         }
                         else if (value &&
                             Array.isArray(value) &&
                             typeof value !== 'string') {
-                            value = createArray(oValue, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key);
+                            value = createArray(oValue, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key, execludeComponentsFromMutations);
                         }
                         var oldValue = item[key];
                         item[key] = oValue;
@@ -278,7 +327,10 @@ var EventSubscriper = /** @class */ (function () {
     }
     return EventSubscriper;
 }());
-export default (function (item) {
-    return new GlobalState(item);
+export default (function (item, execludeComponentsFromMutations) {
+    console.log('create global');
+    return new GlobalState(item, undefined, undefined, execludeComponentsFromMutations
+        ? getColumns(execludeComponentsFromMutations)
+        : undefined);
 });
 //# sourceMappingURL=index.js.map

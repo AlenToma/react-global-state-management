@@ -13,5 +13,5 @@ declare class EventSubscriper {
     items: string[];
     constructor(func: Function, items?: Function);
 }
-declare const _default: <T>(item: T) => T & IGlobalState<T>;
+declare const _default: <T, B>(item: T, execludeComponentsFromMutations?: MutatedItems<T, B> | undefined) => T & IGlobalState<T>;
 export default _default;
