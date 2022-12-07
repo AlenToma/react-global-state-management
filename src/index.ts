@@ -279,91 +279,96 @@ class GlobalState<T> {
         return false;
       };
       for (let key of keys) {
-        let val = item[key];
-        if (
-          typeof val === 'object' &&
-          !Array.isArray(val) &&
-          val !== undefined &&
-          val !== null &&
-          typeof val !== 'string'
-        ) {
-          if (!isExecluded(key)) {
-            if (!alreadyCloned.has(val)) {
-              alreadyCloned.set(val, val);
-              alreadyCloned.set(
-                val,
-                new GlobalState(
+        try {
+          let val = item[key];
+          if (
+            typeof val === 'object' &&
+            !Array.isArray(val) &&
+            val !== undefined &&
+            val !== null &&
+            typeof val !== 'string'
+          ) {
+            if (!isExecluded(key)) {
+              if (!alreadyCloned.has(val)) {
+                alreadyCloned.set(val, val);
+                alreadyCloned.set(
                   val,
-                  trigger,
-                  prKey(key),
-                  execludeComponentsFromMutations,
-                  alreadyCloned
-                )
-              );
-              val = alreadyCloned.get(val);
-            } else val = alreadyCloned.get(val);
-          }
-        } else if (val && Array.isArray(val) && typeof val !== 'string') {
-          val = createArray(
-            val,
-            onCreate.bind(this),
-            trigger?.bind(this),
-            key,
-            execludeComponentsFromMutations
-          );
-        }
-
-        Object.defineProperty(this, key, {
-          get: () => val,
-          set: (value) => {
-            let oValue = value;
-            if (value == val) return;
-            if (!value.isGlobalState) alreadyCloned?.delete(oValue);
-            if (
-              typeof value === 'object' &&
-              !Array.isArray(value) &&
-              value !== undefined &&
-              value !== null &&
-              typeof value !== 'string'
-            ) {
-              if (!isExecluded(key) && !value.isGlobalState) {
-                alreadyCloned?.set(value, value);
-                alreadyCloned?.set(
-                  value,
                   new GlobalState(
-                    oValue,
+                    val,
                     trigger,
                     prKey(key),
                     execludeComponentsFromMutations,
                     alreadyCloned
                   )
                 );
-                value = alreadyCloned?.get(value);
-              }
-            } else if (
-              value &&
-              Array.isArray(value) &&
-              typeof value !== 'string'
-            ) {
-              value = createArray(
-                oValue,
-                onCreate.bind(this),
-                trigger?.bind(this),
-                key,
-                execludeComponentsFromMutations
-              );
+                val = alreadyCloned.get(val);
+              } else val = alreadyCloned.get(val);
             }
-            const oldValue = item[key];
-            item[key] = oValue;
-            val = value;
-            if (trigger && value !== oldValue)
-              trigger(prKey(key), oldValue, value);
-          },
-          enumerable: true,
-        });
+          } else if (val && Array.isArray(val) && typeof val !== 'string') {
+            val = createArray(
+              val,
+              onCreate.bind(this),
+              trigger?.bind(this),
+              key,
+              execludeComponentsFromMutations
+            );
+          }
+
+          Object.defineProperty(this, key, {
+            get: () => val,
+            set: (value) => {
+              let oValue = value;
+              if (value == val) return;
+              if (!value.isGlobalState) alreadyCloned?.delete(oValue);
+              if (
+                typeof value === 'object' &&
+                !Array.isArray(value) &&
+                value !== undefined &&
+                value !== null &&
+                typeof value !== 'string'
+              ) {
+                if (!isExecluded(key) && !value.isGlobalState) {
+                  alreadyCloned?.set(value, value);
+                  alreadyCloned?.set(
+                    value,
+                    new GlobalState(
+                      oValue,
+                      trigger,
+                      prKey(key),
+                      execludeComponentsFromMutations,
+                      alreadyCloned
+                    )
+                  );
+                  value = alreadyCloned?.get(value);
+                }
+              } else if (
+                value &&
+                Array.isArray(value) &&
+                typeof value !== 'string'
+              ) {
+                value = createArray(
+                  oValue,
+                  onCreate.bind(this),
+                  trigger?.bind(this),
+                  key,
+                  execludeComponentsFromMutations
+                );
+              }
+              const oldValue = item[key];
+              item[key] = oValue;
+              val = value;
+              if (trigger && value !== oldValue)
+                trigger(prKey(key), oldValue, value);
+            },
+            enumerable: true,
+          });
+        } catch (e) {
+          console.error(prKey(key), e);
+          console.info(prKey(key), "wont be included in GlobalState");
+        }
       }
     } catch (e) {
-      console.log(e);
+      console.error(e);
       throw e;
     }
   }
@@ -405,11 +410,10 @@ class EventSubscriper {
   }
 }
 
-export default <T, B>(
+export default <T>(
   item: T,
-  execludeComponentsFromMutations?: MutatedItems<T, B>
+  execludeComponentsFromMutations?: MutatedItems<T, any>
 ) => {
-  console.log('create global');
   return new GlobalState<T>(
     item,
     undefined,

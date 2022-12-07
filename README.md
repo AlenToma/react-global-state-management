@@ -118,3 +118,7 @@ GlobalState({
 }, x=> [x.ciculareProp]);
 
 ```
+
+## Expression 
+When Adding `x=> [x.test]` the library also accept a seaching string eg `x=> [x.test, "x.arr.someprop"]` This is when you want to search for a some prop in array
+It is mosly used in execluding props as `hooks` and `subscribe` Identify changes on those props when changing the the prop in array so you only need to `data.hook(x=> [x.arr])`
