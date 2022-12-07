@@ -1,5 +1,5 @@
 import * as React from 'react';
-import createArray from './CustomArray'
+import createArray from './CustomArray';
 const __ignoreKeys = [
   'hook',
   'getEvents',
@@ -8,7 +8,6 @@ const __ignoreKeys = [
   'addHook',
   'removeHook',
 ];
-
 const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
 const __hooks = new Map<
   GlobalState<any>,
@@ -31,6 +30,9 @@ export type ValueChange = {
 };
 
 class GlobalState<T> {
+  isGlobalState = () => {
+    return true;
+  };
   subscribe<B>(
     func: (item: T, props: ValueChange[]) => void,
     items?: MutatedItems<T, B>
@@ -126,8 +128,11 @@ class GlobalState<T> {
   constructor(
     tItem: T,
     trigger?: (key: string, oldValue: any, newValue: any) => void,
-    parentKey?: string
+    parentKey?: string,
+    execludeComponentsFromMutations?: string[],
+    alreadyCloned?: Map<any, GlobalState<any>>
   ) {
+    if (!alreadyCloned) alreadyCloned = new Map();
     const item = tItem as any;
     try {
       if (!parentKey) parentKey = '';
@@ -135,6 +140,19 @@ class GlobalState<T> {
       const prKey = (key: string) => {
         if (parentKey != '') return parentKey + '.' + key;
         return key;
+      };
+
+      const readablePrKey = (key: string) => prKey(key).replace(/\./g, '');
+
+      const readableParentKey = (key: string) => {
+        if (key.indexOf('.') != -1)
+          return key
+            .split('.')
+            .reverse()
+            .filter((x, i) => i > 0)
+            .reverse()
+            .join();
+        return '';
       };
       let timer = undefined as any;
       let caller = [] as { props: ValueChange[]; item: EventSubscriper }[];
@@ -148,7 +166,7 @@ class GlobalState<T> {
             for (let x of key.split('.')) {
               t = item[x];
               arrKey += x;
-              if (t && Array.isArray(t) && typeof t != "string") {
+              if (t && Array.isArray(t)) {
                 isArray = true;
                 break;
               }
@@ -162,7 +180,9 @@ class GlobalState<T> {
           for (const e of events) {
             const props = { key, oldValue, newValue };
             if (
-              e[1].items.includes(ck) || (isArray && e[1].items.includes(arrKey)) ||
+              e[1].items.includes(ck) ||
+              (isArray && e[1].items.includes(arrKey)) ||
+              e[1].items.includes(readableParentKey(key)) ||
               e[1].items.length == 0
             ) {
               if (!caller.find((x) => x.item == e[1]))
@@ -172,7 +192,13 @@ class GlobalState<T> {
           }
 
           for (const e of __hooks.get(this) || []) {
-            if ((e[3].includes(ck) || ((isArray && e[3].includes(arrKey))) || e[3].length == 0) && !hooks.includes(e))
+            if (
+              (e[3].includes(ck) ||
+                (isArray && e[3].includes(arrKey)) ||
+                e[3].includes(readableParentKey(key)) ||
+                e[3].length == 0) &&
+              !hooks.includes(e)
+            )
               hooks.push(e);
           }
 
@@ -195,7 +221,12 @@ class GlobalState<T> {
           (x) => !ignoreKyes.includes(x)
         );
       }
-      const onCreate = (key: string, data: any) => {
+      const onCreate = (
+        key: string,
+        data: any,
+        execludeComponentsFromMutation?: string[]
+      ) => {
+        if (!alreadyCloned) alreadyCloned = new Map();
         const r = [];
         if (typeof data === 'string') data = [data];
         for (let x of data) {
@@ -208,20 +239,44 @@ class GlobalState<T> {
                 createArray(x, onCreate.bind(this)).forEach(
                   (a: any) => r.push(a),
                   trigger,
-                  key
+                  key,
+                  execludeComponentsFromMutation
                 );
             } else {
               if (
                 typeof x === 'object' &&
                 !Array.isArray(x) &&
-                typeof x !== 'string'
+                typeof x !== 'string' &&
+                !isExecluded(key)
               ) {
-                r.push(new GlobalState(x, trigger, prKey(key)));
+                alreadyCloned.set(x, x);
+                alreadyCloned.set(
+                  x,
+                  new GlobalState(
+                    x,
+                    trigger,
+                    prKey(key),
+                    execludeComponentsFromMutation,
+                    alreadyCloned
+                  )
+                );
+                r.push(alreadyCloned.get(x));
               } else r.push(x);
             }
           } else r.push(x);
         }
         return r;
+      };
+
+      const isExecluded = (key: string) => {
+        if (!execludeComponentsFromMutations) return false;
+        if (
+          execludeComponentsFromMutations.includes(readablePrKey(key)) ||
+          (parentKey && execludeComponentsFromMutations.includes(parentKey))
+        )
+          return true;
+
+        return false;
       };
       for (let key of keys) {
         let val = item[key];
@@ -232,17 +287,38 @@ class GlobalState<T> {
           val !== null &&
           typeof val !== 'string'
         ) {
-          val = new GlobalState(val, trigger, prKey(key));
+          if (!isExecluded(key)) {
+            if (!alreadyCloned.has(val)) {
+              alreadyCloned.set(val, val);
+              alreadyCloned.set(
+                val,
+                new GlobalState(
+                  val,
+                  trigger,
+                  prKey(key),
+                  execludeComponentsFromMutations,
+                  alreadyCloned
+                )
+              );
+              val = alreadyCloned.get(val);
+            } else val = alreadyCloned.get(val);
+          }
         } else if (val && Array.isArray(val) && typeof val !== 'string') {
-          val = createArray(val, onCreate.bind(this), trigger?.bind(this), key);
+          val = createArray(
+            val,
+            onCreate.bind(this),
+            trigger?.bind(this),
+            key,
+            execludeComponentsFromMutations
+          );
         }
 
         Object.defineProperty(this, key, {
           get: () => val,
           set: (value) => {
-            if (value == val)
-              return;
             let oValue = value;
+            if (value == val) return;
+            if (!value.isGlobalState) alreadyCloned?.delete(oValue);
             if (
               typeof value === 'object' &&
               !Array.isArray(value) &&
@@ -250,7 +326,20 @@ class GlobalState<T> {
               value !== null &&
               typeof value !== 'string'
             ) {
-              value = new GlobalState(oValue, trigger, prKey(key));
+              if (!isExecluded(key) && !value.isGlobalState) {
+                alreadyCloned?.set(value, value);
+                alreadyCloned?.set(
+                  value,
+                  new GlobalState(
+                    oValue,
+                    trigger,
+                    prKey(key),
+                    execludeComponentsFromMutations,
+                    alreadyCloned
+                  )
+                );
+                value = alreadyCloned?.get(value);
+              }
             } else if (
               value &&
               Array.isArray(value) &&
@@ -260,13 +349,15 @@ class GlobalState<T> {
                 oValue,
                 onCreate.bind(this),
                 trigger?.bind(this),
-                key
+                key,
+                execludeComponentsFromMutations
               );
             }
             const oldValue = item[key];
             item[key] = oValue;
             val = value;
-            if (trigger && value !== oldValue) trigger(prKey(key), oldValue, value);
+            if (trigger && value !== oldValue)
+              trigger(prKey(key), oldValue, value);
           },
           enumerable: true,
         });
@@ -314,6 +405,17 @@ class EventSubscriper {
   }
 }
 
-export default <T>(item: T) => {
-  return new GlobalState<T>(item) as any as T & IGlobalState<T>;
+export default <T, B>(
+  item: T,
+  execludeComponentsFromMutations?: MutatedItems<T, B>
+) => {
+  console.log('create global');
+  return new GlobalState<T>(
+    item,
+    undefined,
+    undefined,
+    execludeComponentsFromMutations
+      ? getColumns(execludeComponentsFromMutations)
+      : undefined
+  ) as any as T & IGlobalState<T>;
 };

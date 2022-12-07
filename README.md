@@ -88,7 +88,7 @@ Rebuild the component when a change happened
 hook() OR hook(x=> [x.item.counter,..])
 ```
 
-Subscribe to changes when the global data change. This works like useEffect except You will have more control over you updates and this will not trigger rebuild
+`Subscribe` to changes when the global data change. This works like useEffect except You will have more control over you updates and this will not trigger rebuild
 ```js
 // global
 data.subscribe(
@@ -108,3 +108,13 @@ data.subscribe(
   );  
   
   ```
+`execludeComponentsFromMutations` this is manly used to execlude some properties that has circulare references.
+Selef referense wont be nedded to be included here as the library could solve those already.
+
+```js
+GlobalState({
+  text: 'someText',
+  ciculareProp: ...
+}, x=> [x.ciculareProp]);
+
+```
