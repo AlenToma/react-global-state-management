@@ -5,17 +5,10 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
             r[k] = a[j];
     return r;
 };
-export default function createData(dt, onCreate, trigger, key, execludeComponentsFromMutation) {
+export default function createData(dt, onCreate, trigger, key) {
     var pr = Array.prototype;
-    var prCopy = __spreadArrays(pr);
+    var prCopy = new Array();
     var created = false;
-    function IArray(dt) {
-        var _this = this;
-        if (dt)
-            dt.forEach(function (x) { return _this.push(x); });
-        created = true;
-    }
-    prCopy.getExecludeComponentsFromMutation = function () { return execludeComponentsFromMutation; };
     prCopy.getType = function () { return 'CustomeArray'; };
     prCopy.getKey = function () { return key; };
     prCopy.push = function () {
@@ -25,7 +18,7 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
             data[_i] = arguments[_i];
         }
         var oValue = __spreadArrays(this);
-        var r = (_a = pr.push).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
+        var r = (_a = pr.push).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
         if (oValue.length !== this.length && created)
             trigger(this.getKey(), oValue, this);
         return r;
@@ -36,7 +29,7 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
         for (var _i = 0; _i < arguments.length; _i++) {
             data[_i] = arguments[_i];
         }
-        return (_a = pr.concat).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
+        return (_a = pr.concat).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
     };
     prCopy.shift = function () {
         var oValue = __spreadArrays(this);
@@ -52,7 +45,7 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
             data[_i] = arguments[_i];
         }
         var oValue = __spreadArrays(this);
-        var r = (_a = pr.unshift).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation())));
+        var r = (_a = pr.unshift).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;
@@ -85,7 +78,9 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
             trigger(this.getKey(), oValue, this);
         return r;
     };
-    IArray.prototype = prCopy;
-    return new IArray(dt);
+    if (dt)
+        dt.forEach(function (x) { return prCopy.push(x); });
+    created = true;
+    return prCopy;
 }
 //# sourceMappingURL=CustomArray.js.map

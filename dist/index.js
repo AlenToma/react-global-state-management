@@ -17,9 +17,10 @@ var __ignoreKeys = [
 ];
 var __events = new Map();
 var __hooks = new Map();
+var __execludedKeys = new Map();
 var ids = { id: 0 };
 var GlobalState = /** @class */ (function () {
-    function GlobalState(tItem, trigger, parentKey, execludeComponentsFromMutations, alreadyCloned) {
+    function GlobalState(tItem, id, trigger, parentKey, alreadyCloned) {
         var _this = this;
         this.isGlobalState = function () {
             return true;
@@ -44,7 +45,7 @@ var GlobalState = /** @class */ (function () {
                         .filter(function (_, i) { return i > 0; })
                         .reverse()
                         .join();
-                return key;
+                return "";
             };
             var timer_1 = undefined;
             var caller_1 = [];
@@ -112,7 +113,7 @@ var GlobalState = /** @class */ (function () {
                 var ignoreKyes_1 = Object.getOwnPropertyNames(Object.prototype);
                 keys = __spreadArrays(keys, Object.getOwnPropertyNames(prototype)).filter(function (x) { return !ignoreKyes_1.includes(x); });
             }
-            var onCreate_1 = function (key, data, execludeComponentsFromMutation) {
+            var onCreate_1 = function (key, data) {
                 if (!alreadyCloned)
                     alreadyCloned = new Map();
                 var r = [];
@@ -122,9 +123,7 @@ var GlobalState = /** @class */ (function () {
                     var x = data_1[_i];
                     if (x) {
                         if (Array.isArray(x) && typeof x !== 'string') {
-                            if ((x.length > 0 && x.getType == undefined) ||
-                                x.getType() != 'CustomeArray')
-                                createArray(x, onCreate_1.bind(_this)).forEach(function (a) { return r.push(a); }, trigger, key, execludeComponentsFromMutation);
+                            r.push(createArray(x, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key));
                         }
                         else {
                             if (typeof x === 'object' &&
@@ -132,7 +131,7 @@ var GlobalState = /** @class */ (function () {
                                 typeof x !== 'string' &&
                                 !isExecluded_1(key)) {
                                 alreadyCloned.set(x, x);
-                                alreadyCloned.set(x, new GlobalState(x, trigger, prKey_1(key), execludeComponentsFromMutation, alreadyCloned));
+                                alreadyCloned.set(x, new GlobalState(x, id, trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key, alreadyCloned));
                                 r.push(alreadyCloned.get(x));
                             }
                             else
@@ -145,12 +144,16 @@ var GlobalState = /** @class */ (function () {
                 return r;
             };
             var isExecluded_1 = function (key) {
-                if (!execludeComponentsFromMutations)
-                    return false;
-                if (execludeComponentsFromMutations.includes(readablePrKey_1(key)) ||
-                    (parentKey && execludeComponentsFromMutations.includes(parentKey)))
-                    return true;
-                return false;
+                var execludedKeys = __execludedKeys.get(id);
+                var r = false;
+                if (execludedKeys === undefined)
+                    r = false;
+                else {
+                    if (execludedKeys.includes(readablePrKey_1(key)) ||
+                        execludedKeys.includes(readableParentKey_1(key)))
+                        r = true;
+                }
+                return r;
             };
             var _loop_1 = function (key) {
                 try {
@@ -163,7 +166,7 @@ var GlobalState = /** @class */ (function () {
                         if (!isExecluded_1(key)) {
                             if (!alreadyCloned.has(val_1)) {
                                 alreadyCloned.set(val_1, val_1);
-                                alreadyCloned.set(val_1, new GlobalState(val_1, trigger, prKey_1(key), execludeComponentsFromMutations, alreadyCloned));
+                                alreadyCloned.set(val_1, new GlobalState(val_1, id, trigger.bind(this_1), prKey_1(key), alreadyCloned));
                                 val_1 = alreadyCloned.get(val_1);
                             }
                             else
@@ -171,7 +174,7 @@ var GlobalState = /** @class */ (function () {
                         }
                     }
                     else if (val_1 && Array.isArray(val_1) && typeof val_1 !== 'string') {
-                        val_1 = createArray(val_1, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), key, execludeComponentsFromMutations);
+                        val_1 = createArray(val_1, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), prKey_1(key));
                     }
                     Object.defineProperty(this_1, key, {
                         get: function () { return val_1; },
@@ -188,14 +191,14 @@ var GlobalState = /** @class */ (function () {
                                 typeof value !== 'string') {
                                 if (!isExecluded_1(key) && !value.isGlobalState) {
                                     alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.set(value, value);
-                                    alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.set(value, new GlobalState(oValue, trigger, prKey_1(key), execludeComponentsFromMutations, alreadyCloned));
+                                    alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.set(value, new GlobalState(oValue, id, trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), prKey_1(key), alreadyCloned));
                                     value = alreadyCloned === null || alreadyCloned === void 0 ? void 0 : alreadyCloned.get(value);
                                 }
                             }
                             else if (value &&
                                 Array.isArray(value) &&
                                 typeof value !== 'string') {
-                                value = createArray(oValue, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), key, execludeComponentsFromMutations);
+                                value = createArray(oValue, onCreate_1.bind(_this), trigger === null || trigger === void 0 ? void 0 : trigger.bind(_this), prKey_1(key));
                             }
                             var oldValue = item[key];
                             item[key] = oValue;
@@ -208,7 +211,7 @@ var GlobalState = /** @class */ (function () {
                 }
                 catch (e) {
                     console.error(prKey_1(key), e);
-                    console.info(prKey_1(key), "wont be included in GlobalState");
+                    console.info(prKey_1(key), 'wont be included in GlobalState');
                 }
             };
             var this_1 = this;
@@ -300,7 +303,7 @@ var GlobalState = /** @class */ (function () {
     return GlobalState;
 }());
 var getColumns = function (fn, skipFirst) {
-    var str = fn.toString();
+    var str = fn.toString().replace(/\"|\'/gim, "");
     var colName = '';
     if (str.indexOf('.') !== -1 && skipFirst !== false) {
         colName = str
@@ -334,8 +337,8 @@ var EventSubscriper = /** @class */ (function () {
     return EventSubscriper;
 }());
 export default (function (item, execludeComponentsFromMutations) {
-    return new GlobalState(item, undefined, undefined, execludeComponentsFromMutations
-        ? getColumns(execludeComponentsFromMutations)
-        : undefined);
+    var id = ++ids.id;
+    __execludedKeys.set(id, execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : []);
+    return new GlobalState(item, id);
 });
 //# sourceMappingURL=index.js.map

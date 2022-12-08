@@ -1,23 +1,19 @@
-export default function createData(dt, onCreate, trigger, key, execludeComponentsFromMutation) {
+export default function createData(dt, onCreate, trigger, key) {
   const pr = Array.prototype;
-  const prCopy = [...pr];
+  const prCopy = new Array();
   let created = false;
-  function IArray(dt) {
-    if (dt) dt.forEach((x) => this.push(x));
-    created = true;
-  }
-  prCopy.getExecludeComponentsFromMutation = ()=> execludeComponentsFromMutation
   prCopy.getType = () => 'CustomeArray';
   prCopy.getKey = () => key;
   prCopy.push = function (...data) {
     const oValue = [...this];
-    const r = pr.push.call(this, ...onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation()));
-    if (oValue.length !== this.length && created) trigger(this.getKey(), oValue, this);
+    const r = pr.push.call(this, ...onCreate(this.getKey(), data));
+    if (oValue.length !== this.length && created)
+      trigger(this.getKey(), oValue, this);
     return r;
   };
 
   prCopy.concat = function (...data) {
-    return pr.concat.call(this, ...onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation()));
+    return pr.concat.call(this, ...onCreate(this.getKey(), data));
   };
 
   prCopy.shift = function () {
@@ -29,7 +25,7 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
 
   prCopy.unshift = function (...data) {
     const oValue = [...this];
-    const r = pr.unshift.call(this, ...onCreate(this.getKey(), data, this.getExecludeComponentsFromMutation()));
+    const r = pr.unshift.call(this, ...onCreate(this.getKey(), data));
     if (oValue.length !== this.length) trigger(this.getKey(), oValue, this);
     return r;
   };
@@ -59,6 +55,7 @@ export default function createData(dt, onCreate, trigger, key, execludeComponent
     if (oValue.length !== this.length) trigger(this.getKey(), oValue, this);
     return r;
   };
-  IArray.prototype = prCopy;
-  return new IArray(dt);
+  if (dt) dt.forEach((x) => prCopy.push(x));
+  created = true;
+  return prCopy;
 }

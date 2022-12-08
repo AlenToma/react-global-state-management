@@ -13,6 +13,7 @@ const __hooks = new Map<
   GlobalState<any>,
   [number, Function, number, string[]][]
 >();
+const __execludedKeys = new Map<number, string[]>();
 type MutatedItems<T, B> = (x: T) => B[];
 const ids = { id: 0 };
 export type IGlobalState<T> = {
@@ -127,9 +128,9 @@ class GlobalState<T> {
 
   constructor(
     tItem: T,
+    id: number,
     trigger?: (key: string, oldValue: any, newValue: any) => void,
     parentKey?: string,
-    execludeComponentsFromMutations?: string[],
     alreadyCloned?: Map<any, GlobalState<any>>
   ) {
     if (!alreadyCloned) alreadyCloned = new Map();
@@ -152,7 +153,7 @@ class GlobalState<T> {
             .filter((_, i) => i > 0)
             .reverse()
             .join();
-        return key;
+        return "";
       };
       let timer = undefined as any;
       let caller = [] as { props: ValueChange[]; item: EventSubscriper }[];
@@ -177,6 +178,7 @@ class GlobalState<T> {
           const events = this.getEvents();
           const func = new Function(`return [${key}]`);
           const ck = getColumns(func, false)[0];
+
           for (const e of events) {
             const props = { key, oldValue, newValue };
             if (
@@ -221,27 +223,14 @@ class GlobalState<T> {
           (x) => !ignoreKyes.includes(x)
         );
       }
-      const onCreate = (
-        key: string,
-        data: any,
-        execludeComponentsFromMutation?: string[]
-      ) => {
+      const onCreate = (key: string, data: any) => {
         if (!alreadyCloned) alreadyCloned = new Map();
-        const r = [];
+        const r = [] as any[];
         if (typeof data === 'string') data = [data];
         for (let x of data) {
           if (x) {
             if (Array.isArray(x) && typeof x !== 'string') {
-              if (
-                (x.length > 0 && (x as any).getType == undefined) ||
-                (x as any).getType() != 'CustomeArray'
-              )
-                createArray(x, onCreate.bind(this)).forEach(
-                  (a: any) => r.push(a),
-                  trigger,
-                  key,
-                  execludeComponentsFromMutation
-                );
+              r.push(createArray(x, onCreate.bind(this), trigger?.bind(this), key));
             } else {
               if (
                 typeof x === 'object' &&
@@ -254,9 +243,9 @@ class GlobalState<T> {
                   x,
                   new GlobalState(
                     x,
-                    trigger,
-                    prKey(key),
-                    execludeComponentsFromMutation,
+                    id,
+                    trigger?.bind(this),
+                    key,
                     alreadyCloned
                   )
                 );
@@ -269,14 +258,17 @@ class GlobalState<T> {
       };
 
       const isExecluded = (key: string) => {
-        if (!execludeComponentsFromMutations) return false;
-        if (
-          execludeComponentsFromMutations.includes(readablePrKey(key)) ||
-          (parentKey && execludeComponentsFromMutations.includes(parentKey))
-        )
-          return true;
-
-        return false;
+        const execludedKeys = __execludedKeys.get(id);
+        let r = false;
+        if (execludedKeys === undefined) r = false;
+        else {
+          if (
+            execludedKeys.includes(readablePrKey(key)) ||
+            execludedKeys.includes(readableParentKey(key))
+          )
+            r = true;
+        }
+        return r;
       };
       for (let key of keys) {
         try {
@@ -295,9 +287,9 @@ class GlobalState<T> {
                   val,
                   new GlobalState(
                     val,
-                    trigger,
+                    id,
+                    trigger.bind(this),
                     prKey(key),
-                    execludeComponentsFromMutations,
                     alreadyCloned
                   )
                 );
@@ -309,8 +301,7 @@ class GlobalState<T> {
               val,
               onCreate.bind(this),
               trigger?.bind(this),
-              key,
-              execludeComponentsFromMutations
+              prKey(key)
             );
           }
 
@@ -333,9 +324,9 @@ class GlobalState<T> {
                     value,
                     new GlobalState(
                       oValue,
-                      trigger,
+                      id,
+                      trigger?.bind(this),
                       prKey(key),
-                      execludeComponentsFromMutations,
                       alreadyCloned
                     )
                   );
@@ -350,8 +341,7 @@ class GlobalState<T> {
                   oValue,
                   onCreate.bind(this),
                   trigger?.bind(this),
-                  key,
-                  execludeComponentsFromMutations
+                  prKey(key)
                 );
               }
               const oldValue = item[key];
@@ -364,7 +354,7 @@ class GlobalState<T> {
           });
         } catch (e) {
           console.error(prKey(key), e);
-          console.info(prKey(key), "wont be included in GlobalState");
+          console.info(prKey(key), 'wont be included in GlobalState');
         }
       }
     } catch (e) {
@@ -375,7 +365,7 @@ class GlobalState<T> {
 }
 
 const getColumns = (fn: Function, skipFirst?: boolean) => {
-  var str = fn.toString();
+  var str = fn.toString().replace(/\"|\'/gim, "");
   let colName = '';
   if (str.indexOf('.') !== -1 && skipFirst !== false) {
     colName = str
@@ -414,12 +404,10 @@ export default <T>(
   item: T,
   execludeComponentsFromMutations?: MutatedItems<T, any>
 ) => {
+  const id = ++ids.id;
+  __execludedKeys.set(id, execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : []);
   return new GlobalState<T>(
     item,
-    undefined,
-    undefined,
-    execludeComponentsFromMutations
-      ? getColumns(execludeComponentsFromMutations)
-      : undefined
+    id
   ) as any as T & IGlobalState<T>;
 };
