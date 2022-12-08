@@ -15,6 +15,34 @@ var __ignoreKeys = [
     'addHook',
     'removeHook',
 ];
+var toKeyValue = function (v) {
+    if (v == undefined || v == null)
+        return undefined;
+    try {
+        if (typeof v === "object" && typeof v != "string")
+            return JSON.stringify(v);
+        else
+            return v.toString();
+    }
+    catch (e) {
+        console.log(e);
+        return v.toString();
+    }
+};
+var Identifier = /** @class */ (function () {
+    function Identifier(id, data, counter, cols) {
+        this.id = id;
+        this.data = data;
+        this.counter = counter;
+        this.cols = cols;
+    }
+    Identifier.prototype.init = function (parent) {
+        if (this.cols)
+            this.json = toKeyValue(this.cols(parent));
+        return this;
+    };
+    return Identifier;
+}());
 var __events = new Map();
 var __hooks = new Map();
 var __execludedKeys = new Map();
@@ -45,7 +73,7 @@ var GlobalState = /** @class */ (function () {
                         .filter(function (_, i) { return i > 0; })
                         .reverse()
                         .join();
-                return "";
+                return '';
             };
             var timer_1 = undefined;
             var caller_1 = [];
@@ -53,59 +81,46 @@ var GlobalState = /** @class */ (function () {
             if (!trigger)
                 trigger = function (key, oldValue, newValue) {
                     var _a;
-                    var isArray = false;
-                    var arrKey = '';
-                    var isArrayParent = function () {
-                        var t = undefined;
-                        for (var _i = 0, _a = key.split('.'); _i < _a.length; _i++) {
-                            var x = _a[_i];
-                            t = item[x];
-                            arrKey += x;
-                            if (t && Array.isArray(t)) {
-                                isArray = true;
-                                break;
-                            }
-                        }
-                    };
-                    isArrayParent();
+                    var prop = { key: key, oldValue: oldValue, newValue: newValue };
                     clearTimeout(timer_1);
                     var events = _this.getEvents();
-                    var func = new Function("return [" + key + "]");
-                    var ck = getColumns(func, false)[0];
                     var _loop_2 = function (e) {
-                        var props = { key: key, oldValue: oldValue, newValue: newValue };
-                        if (e[1].items.includes(ck) ||
-                            (isArray && e[1].items.includes(arrKey)) ||
-                            e[1].items.includes(readableParentKey_1(key)) ||
-                            e[1].items.length == 0) {
-                            if (!caller_1.find(function (x) { return x.item == e[1]; }))
-                                caller_1.push({ item: e[1], props: [props] });
+                        var add = true;
+                        if (e.cols) {
+                            var s1 = toKeyValue(e.cols(_this));
+                            if (s1 === e.json)
+                                add = false;
+                            e.json = s1;
+                        }
+                        if (add) {
+                            if (caller_1.find(function (x) { return x.e == e; }))
+                                (_a = caller_1.find(function (x) { return x.e == e; })) === null || _a === void 0 ? void 0 : _a.props.push(prop);
                             else
-                                (_a = caller_1.find(function (x) { return x.item == e[1]; })) === null || _a === void 0 ? void 0 : _a.props.push(props);
+                                caller_1.push({ props: [prop], e: e });
                         }
                     };
-                    for (var _i = 0, events_1 = events; _i < events_1.length; _i++) {
-                        var e = events_1[_i];
+                    for (var _i = 0, _b = events || []; _i < _b.length; _i++) {
+                        var e = _b[_i];
                         _loop_2(e);
                     }
-                    for (var _b = 0, _c = __hooks.get(_this) || []; _b < _c.length; _b++) {
-                        var e = _c[_b];
-                        if ((e[3].includes(ck) ||
-                            (isArray && e[3].includes(arrKey)) ||
-                            e[3].includes(readableParentKey_1(key)) ||
-                            e[3].length == 0) &&
-                            !hooks_1.includes(e))
+                    for (var _c = 0, _d = __hooks.get(_this) || []; _c < _d.length; _c++) {
+                        var e = _d[_c];
+                        var add = true;
+                        if (e.cols) {
+                            var s1 = toKeyValue(e.cols(_this));
+                            if (s1 === e.json)
+                                add = false;
+                            e.json = s1;
+                        }
+                        if (add)
                             hooks_1.push(e);
                     }
                     timer_1 = setTimeout(function () {
-                        caller_1.forEach(function (x) { return x.item.func(_this, x.props); });
-                        hooks_1.forEach(function (x) {
-                            x[0] = x[0] + 1;
-                            x[1](x[0]);
-                        });
+                        caller_1.forEach(function (x) { return x.e.data(_this, x.props); });
+                        hooks_1.forEach(function (x) { return x.data(x.counter + 1); });
                         caller_1 = [];
                         hooks_1 = [];
-                    }, 1);
+                    }, 0);
                 };
             var keys = Object.keys(item).filter(function (x) { return !__ignoreKeys.includes(x); });
             var prototype = Object.getPrototypeOf(item);
@@ -230,15 +245,16 @@ var GlobalState = /** @class */ (function () {
         var rAny = React;
         var ref = rAny.useRef(0);
         var events = this.getEvents();
-        var event = new EventSubscriper(func, items);
         if (ref.current === 0) {
             ref.current = ++ids.id;
-            events.push([ref.current, event]);
+            var event_1 = new Identifier(ref.current, func, 0, items);
+            if (!events.find(function (x) { return x.id == event_1.id; }))
+                events.push(event_1.init(this));
         }
         else {
-            var e = events.find(function (x) { return x[0] === ref.current; });
+            var e = events.find(function (x) { return x.id === ref.current; });
             if (e)
-                e[1].func = func;
+                e.data = func;
         }
         rAny.useEffect(function () {
             return function () {
@@ -255,44 +271,39 @@ var GlobalState = /** @class */ (function () {
         if (ref.current === 0) {
             ref.current = ++ids.id;
         }
-        this.addHook([
-            counter,
-            setCounter.bind(counter),
-            ref.current,
-            items ? getColumns(items) : [],
-        ]);
+        this.addHook(new Identifier(ref.current, setCounter, counter, items));
         rAny.useEffect(function () {
-            return function () {
-                _this.removeHook(ref.current);
-            };
+            return function () { return _this.removeHook(ref.current); };
         }, []);
     };
     GlobalState.prototype.unsubscribe = function (item) {
         var events = this.getEvents();
-        if (events.find(function (x) { return x[0] === item; }))
-            events.splice(events.findIndex(function (x) { return x[0] == item; }), 1);
+        if (events.find(function (x) { return x.id === item; }))
+            events.splice(events.findIndex(function (x) { return x.id == item; }), 1);
     };
     GlobalState.prototype.addHook = function (value) {
         if (!__hooks.get(this))
             __hooks.set(this, []);
         var item = __hooks.get(this);
         var addValue = true;
-        for (var _i = 0, _a = item; _i < _a.length; _i++) {
-            var c = _a[_i];
-            if (c[2] == value[2]) {
-                c[1] == value[1];
-                c[0] == value[0];
-                addValue = false;
-                break;
+        if (item) {
+            for (var _i = 0, item_1 = item; _i < item_1.length; _i++) {
+                var c = item_1[_i];
+                if (c.id == value.id) {
+                    c.data = value.data;
+                    c.counter = value.counter;
+                    addValue = false;
+                    break;
+                }
             }
         }
         if (addValue && item)
-            item.push(value);
+            item.push(value.init(this));
     };
     GlobalState.prototype.removeHook = function (value) {
         var item = __hooks.get(this);
-        if (item && item.find(function (x) { return x[2] === value; }))
-            item.splice(item.indexOf(item.find(function (x) { return x[2] === value; })), 1);
+        if (item && item.find(function (x) { return x.id === value; }))
+            item.splice(item.indexOf(item.find(function (x) { return x.id === value; })), 1);
     };
     GlobalState.prototype.getEvents = function () {
         if (!__events.get(this))
@@ -305,13 +316,13 @@ var GlobalState = /** @class */ (function () {
 var getColumns = function (fn, skipFirst) {
     var str = fn.toString().replace(/\"|\'/gim, '');
     var colName = '';
-    if (str.indexOf('(') !== -1 && str.indexOf(")") && skipFirst !== false) {
+    if (str.indexOf('(') !== -1 && str.indexOf(')') && skipFirst !== false) {
         colName = str.substring(str.indexOf('(') + 1, str.indexOf(')')).trim();
     }
     if (str.indexOf(')') !== -1)
-        str = str.substring(str.indexOf(")"));
+        str = str.substring(str.indexOf(')'));
     str = str
-        .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|\[|function| /gim, '')
+        .replace(/\]|'|"|\+|return|;|\=|\>|\.|\}|\{|\(|\)|\[|function| /gim, '')
         .replace(/\r?\n|\r/g, '');
     if (colName != '') {
         return str.split(',').map(function (x) {
@@ -323,19 +334,11 @@ var getColumns = function (fn, skipFirst) {
     }
     return str.split(',');
 };
-var EventSubscriper = /** @class */ (function () {
-    function EventSubscriper(func, items) {
-        this.func = func;
-        if (items)
-            this.items = getColumns(items);
-        else
-            this.items = [];
-    }
-    return EventSubscriper;
-}());
 export default (function (item, execludeComponentsFromMutations) {
     var id = ++ids.id;
-    __execludedKeys.set(id, execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : []);
+    __execludedKeys.set(id, execludeComponentsFromMutations
+        ? getColumns(execludeComponentsFromMutations)
+        : []);
     return new GlobalState(item, id);
 });
 //# sourceMappingURL=index.js.map

@@ -1,6 +1,6 @@
 declare type MutatedItems<T, B> = (x: T) => B[];
 export declare type IGlobalState<T> = {
-    subscribe: <B>(func: (item: T, props: ValueChange[]) => void, items?: MutatedItems<T, B>) => EventSubscriper;
+    subscribe: <B>(func: (item: T, props: ValueChange[]) => void, items?: MutatedItems<T, B>) => void;
     hook: <B>(items?: MutatedItems<T, B>) => void;
 };
 export declare type ValueChange = {
@@ -8,10 +8,5 @@ export declare type ValueChange = {
     oldValue: any;
     newValue: any;
 };
-declare class EventSubscriper {
-    func: Function;
-    items: string[];
-    constructor(func: Function, items?: Function);
-}
 declare const _default: <T>(item: T, execludeComponentsFromMutations?: MutatedItems<T, any> | undefined) => T & IGlobalState<T>;
 export default _default;

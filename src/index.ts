@@ -8,11 +8,46 @@ const __ignoreKeys = [
   'addHook',
   'removeHook',
 ];
-const __events = new Map<GlobalState<any>, [number, EventSubscriper][]>();
-const __hooks = new Map<
-  GlobalState<any>,
-  [number, Function, number, string[]][]
->();
+
+const toKeyValue=(v?: any)=> {
+  if (v == undefined || v == null)
+      return undefined;
+  try{
+    if (typeof v === "object" && typeof v != "string")
+         return JSON.stringify(v);
+    else return v.toString();
+  }catch(e){
+    console.log(e)
+    return v.toString();
+  }
+}
+
+class Identifier<T> {
+  id: number;
+  data: T;
+  counter: number;
+  cols?: MutatedItems<T, any>;
+  json?: string;
+  constructor(
+    id: number,
+    data: T,
+    counter: number,
+    cols?: MutatedItems<T, any>
+  ) {
+    this.id = id;
+    this.data = data;
+    this.counter = counter;
+    this.cols = cols;
+  }
+
+  init(parent: any) {
+    if (this.cols) this.json = toKeyValue(this.cols(parent));
+    return this;
+  }
+}
+
+const __events = new Map<GlobalState<any>, Identifier<Function>[]>();
+const __hooks = new Map<GlobalState<any>, Identifier<Function>[]>();
 const __execludedKeys = new Map<number, string[]>();
 type MutatedItems<T, B> = (x: T) => B[];
 const ids = { id: 0 };
@@ -20,7 +55,7 @@ export type IGlobalState<T> = {
   subscribe: <B>(
     func: (item: T, props: ValueChange[]) => void,
     items?: MutatedItems<T, B>
-  ) => EventSubscriper;
+  ) => void;
   hook: <B>(items?: MutatedItems<T, B>) => void;
 };
 
@@ -41,14 +76,18 @@ class GlobalState<T> {
     const rAny = React as any;
     const ref = rAny.useRef(0);
     const events = this.getEvents();
-    const event = new EventSubscriper(func, items);
-
     if (ref.current === 0) {
       ref.current = ++ids.id;
-      events.push([ref.current, event]);
+      const event = new Identifier<Function>(
+        ref.current,
+        func,
+        0,
+        items as any
+      );
+      if (!events.find((x) => x.id == event.id)) events.push(event.init(this));
     } else {
-      const e = events.find((x) => x[0] === ref.current);
-      if (e) e[1].func = func;
+      const e = events.find((x) => x.id === ref.current);
+      if (e) e.data = func;
     }
 
     rAny.useEffect(() => {
@@ -64,66 +103,54 @@ class GlobalState<T> {
     const rAny = React as any;
     const [counter, setCounter] = rAny.useState(0);
     const ref = rAny.useRef(0);
+
     if (ref.current === 0) {
       ref.current = ++ids.id;
     }
-    this.addHook([
-      counter,
-      setCounter.bind(counter),
-      ref.current,
-      items ? getColumns(items) : [],
-    ]);
+    this.addHook(
+      new Identifier<Function>(ref.current, setCounter, counter, items as any)
+    );
     rAny.useEffect(() => {
-      return () => {
-        this.removeHook(ref.current);
-      };
+      return () => this.removeHook(ref.current);
     }, []);
   }
 
   private unsubscribe(item: number) {
     const events = this.getEvents();
-    if (events.find((x) => x[0] === item))
+    if (events.find((x) => x.id === item))
       events.splice(
-        events.findIndex((x) => x[0] == item),
+        events.findIndex((x) => x.id == item),
         1
       );
   }
 
-  private addHook(value: [number, Function, number, string[]]) {
+  private addHook(value: Identifier<Function>) {
     if (!__hooks.get(this)) __hooks.set(this, []);
     const item = __hooks.get(this);
     let addValue = true;
-    for (const c of item as [])
-      if (c[2] == value[2]) {
-        c[1] == value[1];
-        c[0] == value[0];
-        addValue = false;
-        break;
-      }
+    if (item) {
+      for (const c of item)
+        if (c.id == value.id) {
+          c.data = value.data;
+          c.counter = value.counter;
+          addValue = false;
+          break;
+        }
+    }
 
-    if (addValue && item) item.push(value);
+    if (addValue && item) item.push(value.init(this));
   }
 
   private removeHook(value: number) {
     const item = __hooks.get(this);
-    if (item && item.find((x) => x[2] === value))
-      item.splice(
-        item.indexOf(
-          item.find((x) => x[2] === value) as [
-            number,
-            Function,
-            number,
-            string[]
-          ]
-        ),
-        1
-      );
+    if (item && item.find((x) => x.id === value))
+      item.splice(item.indexOf(item.find((x) => x.id === value) as any), 1);
   }
 
   private getEvents() {
     if (!__events.get(this)) __events.set(this, []);
     const item = __events.get(this);
-    return item as [number, EventSubscriper][];
+    return item as Identifier<Function>[];
   }
 
   constructor(
@@ -153,66 +180,47 @@ class GlobalState<T> {
             .filter((_, i) => i > 0)
             .reverse()
             .join();
-        return "";
+        return '';
       };
       let timer = undefined as any;
-      let caller = [] as { props: ValueChange[]; item: EventSubscriper }[];
-      let hooks = [] as [number, Function, number, string[]][];
+
+      let caller = [] as { props: ValueChange[]; e: Identifier<Function> }[];
+      let hooks = [] as Identifier<Function>[];
       if (!trigger)
         trigger = (key: string, oldValue: any, newValue: any) => {
-          let isArray = false;
-          let arrKey = '';
-          const isArrayParent = () => {
-            let t = undefined;
-            for (let x of key.split('.')) {
-              t = item[x];
-              arrKey += x;
-              if (t && Array.isArray(t)) {
-                isArray = true;
-                break;
-              }
-            }
-          };
-          isArrayParent();
+          const prop = { key, oldValue, newValue };
           clearTimeout(timer);
           const events = this.getEvents();
-          const func = new Function(`return [${key}]`);
-          const ck = getColumns(func, false)[0];
-
-          for (const e of events) {
-            const props = { key, oldValue, newValue };
-            if (
-              e[1].items.includes(ck) ||
-              (isArray && e[1].items.includes(arrKey)) ||
-              e[1].items.includes(readableParentKey(key)) ||
-              e[1].items.length == 0
-            ) {
-              if (!caller.find((x) => x.item == e[1]))
-                caller.push({ item: e[1], props: [props] });
-              else caller.find((x) => x.item == e[1])?.props.push(props);
+          for (const e of events || []) {
+            let add = true;
+            if (e.cols) {
+              const s1 = toKeyValue(e.cols(this as any));
+              if (s1 === e.json) add = false;
+              e.json = s1;
+            }
+            if (add) {
+              if (caller.find((x) => x.e == e))
+                caller.find((x) => x.e == e)?.props.push(prop);
+              else caller.push({ props: [prop], e });
             }
           }
 
           for (const e of __hooks.get(this) || []) {
-            if (
-              (e[3].includes(ck) ||
-                (isArray && e[3].includes(arrKey)) ||
-                e[3].includes(readableParentKey(key)) ||
-                e[3].length == 0) &&
-              !hooks.includes(e)
-            )
-              hooks.push(e);
+            let add = true;
+            if (e.cols) {
+              const s1 = toKeyValue(e.cols(this as any))
+              if (s1 === e.json) add = false;
+              e.json = s1;
+            }
+            if (add) hooks.push(e);
           }
 
           timer = setTimeout(() => {
-            caller.forEach((x) => x.item.func(this, x.props));
-            hooks.forEach((x) => {
-              x[0] = x[0] + 1;
-              x[1](x[0]);
-            });
+            caller.forEach((x) => x.e.data(this, x.props));
+            hooks.forEach((x) => x.data(x.counter + 1));
             caller = [];
             hooks = [];
-          }, 1);
+          }, 0);
         };
       let keys = Object.keys(item).filter((x) => !__ignoreKeys.includes(x));
       const prototype = Object.getPrototypeOf(item);
@@ -230,7 +238,9 @@ class GlobalState<T> {
         for (let x of data) {
           if (x) {
             if (Array.isArray(x) && typeof x !== 'string') {
-              r.push(createArray(x, onCreate.bind(this), trigger?.bind(this), key));
+              r.push(
+                createArray(x, onCreate.bind(this), trigger?.bind(this), key)
+              );
             } else {
               if (
                 typeof x === 'object' &&
@@ -368,14 +378,16 @@ const getColumns = (fn: Function, skipFirst?: boolean) => {
   var str = fn.toString().replace(/\"|\'/gim, '');
   let colName = '';
 
-  if (str.indexOf('(') !== -1 && str.indexOf(")") && skipFirst !== false) {
-    colName = str.substring(str.indexOf('(') + 1, str.indexOf(')')).trim()
+  if (str.indexOf('(') !== -1 && str.indexOf(')') && skipFirst !== false) {
+    colName = str.substring(str.indexOf('(') + 1, str.indexOf(')')).trim();
   }
 
-  if (str.indexOf(')') !== -1)
-    str = str.substring(str.indexOf(")"))
-    str = str.replace(/\]|'|"|\+|return|;|\=|\>|\.|\}|\{|\(|\)|\[|function| /gim, '').replace(/\r?\n|\r/g, '');
-    
+  if (str.indexOf(')') !== -1) str = str.substring(str.indexOf(')'));
+
+  str = str
+    .replace(/\]|'|"|\+|return|;|\=|\>|\.|\}|\{|\(|\)|\[|function| /gim, '')
+    .replace(/\r?\n|\r/g, '');
+
   if (colName != '') {
     return str.split(',').map((x) => {
       x = x.trim();
@@ -386,24 +398,16 @@ const getColumns = (fn: Function, skipFirst?: boolean) => {
   return str.split(',');
 };
 
-class EventSubscriper {
-  func: Function;
-  items: string[];
-  constructor(func: Function, items?: Function) {
-    this.func = func;
-    if (items) this.items = getColumns(items);
-    else this.items = [];
-  }
-}
-
 export default <T>(
   item: T,
   execludeComponentsFromMutations?: MutatedItems<T, any>
 ) => {
   const id = ++ids.id;
-  __execludedKeys.set(id, execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : []);
-  return new GlobalState<T>(
-    item,
-    id
-  ) as any as T & IGlobalState<T>;
+  __execludedKeys.set(
+    id,
+    execludeComponentsFromMutations
+      ? getColumns(execludeComponentsFromMutations)
+      : []
+  );
+  return new GlobalState<T>(item, id) as any as T & IGlobalState<T>;
 };
