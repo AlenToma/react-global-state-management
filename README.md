@@ -121,4 +121,49 @@ GlobalState({
 
 ## Expression 
 When Adding `x=> [x.test]` the library also accept a seaching string eg `x=> [x.test, "x.arr.someprop"]` This is when you want to search for a some prop in array
-It is mosly used in execluding props as `hooks` and `subscribe` Identify changes on those props when changing the the prop in array so you only need to `data.hook(x=> [x.arr])`
+It is mosly used in execluding or in `hooks` and `subscribe` to Identify changes on those props.
+Note: when changing the prop in array you only need to `data.hook(x=> [x.arr])`
+
+# Hermes
+Sadly the library has some issue With hermes implementations so far so using global `hook` and `subscribe` is recommended for now.
+
+## obfuscator-io-metro-plugin
+When using encryptions library the below settings is the best if you still want to use expressions eg `hook(x=> [x.text])`;
+
+```js
+
+// Learn more https://docs.expo.io/guides/customizing-metro
+const { getDefaultConfig } = require('expo/metro-config');
+const defaultSettings = getDefaultConfig(__dirname);
+const jsoMetroPlugin = require("obfuscator-io-metro-plugin")({
+    // for these option look javascript-obfuscator library options from  above url
+    compact: false,
+    sourceMap: true,
+    controlFlowFlattening: true,
+    controlFlowFlatteningThreshold: 0,
+    numbersToExpressions: true,
+    simplify: true,
+    shuffleStringArray: true,
+    splitStrings: true,
+    stringArrayThreshold: 0
+}, {
+    runInDev: false /* optional */ ,
+    logObfuscatedFiles: true /* optional generated files will be located at ./.jso */ ,
+    sourceMapLocation: "./index.android.bundle.map" /* optional  only works if sourceMap: true in obfuscation option */ ,
+});
+const settings = Object.assign(defaultSettings, {
+    transformer: {
+        assetPlugins: ['expo-asset/tools/hashAssetFiles'],
+        getTransformOptions: async() => ({
+            transform: {
+                experimentalImportSupport: false,
+                inlineRequires: false,
+            },
+        }),
+    },
+    ...jsoMetroPlugin
+});
+module.exports = settings;
+```
+
+

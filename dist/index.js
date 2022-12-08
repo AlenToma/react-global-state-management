@@ -105,7 +105,7 @@ var GlobalState = /** @class */ (function () {
                         });
                         caller_1 = [];
                         hooks_1 = [];
-                    }, 100);
+                    }, 1);
                 };
             var keys = Object.keys(item).filter(function (x) { return !__ignoreKeys.includes(x); });
             var prototype = Object.getPrototypeOf(item);
@@ -303,18 +303,15 @@ var GlobalState = /** @class */ (function () {
     return GlobalState;
 }());
 var getColumns = function (fn, skipFirst) {
-    var str = fn.toString().replace(/\"|\'/gim, "");
+    var str = fn.toString().replace(/\"|\'/gim, '');
     var colName = '';
-    if (str.indexOf('.') !== -1 && skipFirst !== false) {
-        colName = str
-            .substring(str.indexOf('['), str.indexOf('.'))
-            .replace('[', '');
+    if (str.indexOf('(') !== -1 && str.indexOf(")") && skipFirst !== false) {
+        colName = str.substring(str.indexOf('(') + 1, str.indexOf(')')).trim();
     }
-    if (str.indexOf('[') !== -1) {
-        str = str.substring(str.indexOf('[') + 1);
-    }
+    if (str.indexOf(')') !== -1)
+        str = str.substring(str.indexOf(")"));
     str = str
-        .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|function| /gim, '')
+        .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|\[|function| /gim, '')
         .replace(/\r?\n|\r/g, '');
     if (colName != '') {
         return str.split(',').map(function (x) {

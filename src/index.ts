@@ -212,7 +212,7 @@ class GlobalState<T> {
             });
             caller = [];
             hooks = [];
-          }, 100);
+          }, 1);
         };
       let keys = Object.keys(item).filter((x) => !__ignoreKeys.includes(x));
       const prototype = Object.getPrototypeOf(item);
@@ -365,21 +365,17 @@ class GlobalState<T> {
 }
 
 const getColumns = (fn: Function, skipFirst?: boolean) => {
-  var str = fn.toString().replace(/\"|\'/gim, "");
+  var str = fn.toString().replace(/\"|\'/gim, '');
   let colName = '';
-  if (str.indexOf('.') !== -1 && skipFirst !== false) {
-    colName = str
-      .substring(str.indexOf('['), str.indexOf('.'))
-      .replace('[', '');
-  }
-  if (str.indexOf('[') !== -1) {
-    str = str.substring(str.indexOf('[') + 1);
+
+  if (str.indexOf('(') !== -1 && str.indexOf(")") && skipFirst !== false) {
+    colName = str.substring(str.indexOf('(') + 1, str.indexOf(')')).trim()
   }
 
-  str = str
-    .replace(/\]|'|"|\+|return|;|\.|\}|\{|\(|\)|function| /gim, '')
-    .replace(/\r?\n|\r/g, '');
-
+  if (str.indexOf(')') !== -1)
+    str = str.substring(str.indexOf(")"))
+    str = str.replace(/\]|'|"|\+|return|;|\=|\>|\.|\}|\{|\(|\)|\[|function| /gim, '').replace(/\r?\n|\r/g, '');
+    
   if (colName != '') {
     return str.split(',').map((x) => {
       x = x.trim();
