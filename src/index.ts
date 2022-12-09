@@ -1,5 +1,6 @@
 import * as React from 'react';
 import createArray from './CustomArray';
+import toJson from './toJson'
 const __ignoreKeys = [
   'hook',
   'getEvents',
@@ -12,7 +13,7 @@ const __ignoreKeys = [
 const toKeyValue = (v?: any) => {
   if (v == undefined || v == null) return undefined;
   try {
-    if (typeof v === 'object' && typeof v != 'string') return JSON.stringify(v);
+    if (typeof v === 'object' && typeof v != 'string') return toJson(v);
     else return v.toString();
   } catch (e) {
     console.error(e);

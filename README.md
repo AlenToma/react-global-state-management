@@ -108,9 +108,9 @@ data.subscribe(
   );  
   
   ```
+  
 `execludeComponentsFromMutations` this is manly used to execlude some properties that has circulare references.
-self referense wont be nedded to be included here as the library could solve those already.
-This prop may not work with Hermes.
+self referense wont be needing to be included here as the library could solve those already.
 
 ```js
 GlobalState({

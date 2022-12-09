@@ -18,6 +18,7 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
 };
 import * as React from 'react';
 import createArray from './CustomArray';
+import toJson from './toJson';
 var __ignoreKeys = [
     'hook',
     'getEvents',
@@ -31,7 +32,7 @@ var toKeyValue = function (v) {
         return undefined;
     try {
         if (typeof v === 'object' && typeof v != 'string')
-            return JSON.stringify(v);
+            return toJson(v);
         else
             return v.toString();
     }
