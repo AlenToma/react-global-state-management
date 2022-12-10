@@ -5,13 +5,14 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
             r[k] = a[j];
     return r;
 };
+import { defineMethod } from './defineProp';
 export default function createData(dt, onCreate, trigger, key) {
     var pr = Array.prototype;
     var prCopy = new Array();
     var created = false;
-    prCopy.getType = function () { return 'CustomeArray'; };
-    prCopy.getKey = function () { return key; };
-    prCopy.push = function () {
+    defineMethod(prCopy, 'getKey', function () { return key; });
+    defineMethod(prCopy, 'getType', function () { return 'CustomeArray'; });
+    defineMethod(prCopy, 'push', function () {
         var _a;
         var data = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -22,23 +23,23 @@ export default function createData(dt, onCreate, trigger, key) {
         if (oValue.length !== this.length && created)
             trigger(this.getKey(), oValue, this);
         return r;
-    };
-    prCopy.concat = function () {
+    });
+    defineMethod(prCopy, 'concat', function () {
         var _a;
         var data = [];
         for (var _i = 0; _i < arguments.length; _i++) {
             data[_i] = arguments[_i];
         }
         return (_a = pr.concat).call.apply(_a, __spreadArrays([this], onCreate(this.getKey(), data)));
-    };
-    prCopy.shift = function () {
+    });
+    defineMethod(prCopy, 'shift', function () {
         var oValue = __spreadArrays(this);
         var r = pr.shift.call(this);
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;
-    };
-    prCopy.unshift = function () {
+    });
+    defineMethod(prCopy, 'unshift', function () {
         var _a;
         var data = [];
         for (var _i = 0; _i < arguments.length; _i++) {
@@ -49,22 +50,21 @@ export default function createData(dt, onCreate, trigger, key) {
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;
-    };
-    prCopy.pop = function () {
+    });
+    defineMethod(prCopy, 'pop', function () {
         var oValue = __spreadArrays(this);
         var r = pr.pop.call(this);
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;
-    };
-    prCopy.slice = function (start, end) {
+    });
+    defineMethod(prCopy, 'slice', function (start, end) {
         var oValue = __spreadArrays(this);
         var r = pr.slice.call(this, start, end);
-        if (oValue.length !== this.length)
-            trigger(this.getKey(), oValue, this);
+        trigger(this.getKey(), oValue, this);
         return r;
-    };
-    prCopy.splice = function (start, deleteCount) {
+    });
+    defineMethod(prCopy, 'slice', function (start, deleteCount) {
         var _a;
         var data = [];
         for (var _i = 2; _i < arguments.length; _i++) {
@@ -77,7 +77,7 @@ export default function createData(dt, onCreate, trigger, key) {
         if (oValue.length !== this.length)
             trigger(this.getKey(), oValue, this);
         return r;
-    };
+    });
     if (dt)
         dt.forEach(function (x) { return prCopy.push(x); });
     created = true;
