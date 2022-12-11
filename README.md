@@ -117,6 +117,5 @@ data.subscribe(
 | disableTimer  | The library create a `settimeout` for each changes so that when two changes happend at the same time only one call will be triggered. You can disable this and trigger a call after each change directly, this is usefull when using it in games.  |
 | onChange  | You can use this prop outside components, as `subscribe` and `hooks` can only be used in components  |
 | stringify  | This solve the self refrences issue when parsing the object to json string  |
-| triggerChange  | Sometimes you are using props in components that do not have `hooks` or `subscribe`, using this method you could trigger updates to those components by specifing 
-thair Identifiers  |
+| triggerChange  | Sometimes you are using props in components that do not have `hooks` or `subscribe`, using this method you could trigger updates to those components by specifing thair Identifiers|
 
