@@ -33,14 +33,14 @@ const clone = (item: any, old: any) => {
 };
 
 class Identifier<T> {
-  id: number;
+  id: string;
   data: T;
   counter: number;
   cols?: MutatedItems<T, any>;
   json?: string;
   identifier?: string;
   constructor(
-    id: number,
+    id: string,
     data: T,
     counter: number,
     cols?: MutatedItems<T, any>,
@@ -62,7 +62,17 @@ class Identifier<T> {
     return this;
   }
 }
-const ids = { id: 0 };
+const ids = new Map<string, string>();
+const uid = (sId?: any): string => {
+  if (!sId)
+    sId = "";
+  const id = Date.now().toString(36) + Math.random().toString(36).substring(2) + sId;
+  if (ids.has(id))
+    return uid(id);
+  ids.set(id, id);
+  return id;
+}
+
 class Methods {
   dummes = undefined as any;
   events = [] as Identifier<Function>[];
@@ -70,16 +80,18 @@ class Methods {
   execludedKeys = [] as string[];
   disableTimer: boolean;
   onChange?: (item: any, props: ValueChange[]) => void;
+  keyType: Map<string, string>;
   constructor(
     disableTimer: boolean,
     onChange?: (item: any, props: ValueChange[]) => void
   ) {
     this.disableTimer = disableTimer;
     this.onChange = onChange;
+    this.keyType = new Map();
   }
 }
 
-const __Properties = new Map<number, Methods>();
+const __Properties = new Map<string, Methods>();
 type MutatedItems<T, B> = (x: T) => B[];
 
 export type IGlobalState<T> = {
@@ -131,7 +143,7 @@ class GlobalState<T> {
       const ref = rAny.useRef(0);
       const events = this.getProp().events;
       if (ref.current === 0) {
-        ref.current = ++ids.id;
+        ref.current = uid();
         const event = new Identifier<Function>(
           ref.current,
           func,
@@ -149,6 +161,7 @@ class GlobalState<T> {
       rAny.useEffect(() => {
         return () => {
           this.unsubscribe(ref.current);
+          ids.delete(ref.current);
         };
       }, []);
 
@@ -166,7 +179,7 @@ class GlobalState<T> {
       const ref = rAny.useRef(0);
 
       if (ref.current === 0) {
-        ref.current = ++ids.id;
+        ref.current = uid();
       }
       this.addHook(
         new Identifier<Function>(
@@ -178,7 +191,10 @@ class GlobalState<T> {
         )
       );
       rAny.useEffect(() => {
-        return () => this.removeHook(ref.current);
+        return () => {
+          this.removeHook(ref.current);
+          ids.delete(ref.current);
+        }
       }, []);
 
       return this;
@@ -226,7 +242,7 @@ class GlobalState<T> {
     });
   }
 
-  private unsubscribe(item: number) {
+  private unsubscribe(item: string) {
     const events = this.getProp().events;
     if (events.find((x) => x.id === item))
       events.splice(
@@ -249,7 +265,7 @@ class GlobalState<T> {
     if (addValue) items.push(value.init(this.getProp().dummes));
   }
 
-  private removeHook(value: number) {
+  private removeHook(value: string) {
     const item = this.getProp().hooks;
     if (item && item.find((x) => x.id === value))
       item.splice(item.indexOf(item.find((x) => x.id === value) as any), 1);
@@ -257,7 +273,7 @@ class GlobalState<T> {
 
   constructor(
     tItem: T,
-    id: number,
+    id: string,
     trigger?: (key: string, oldValue: any, newValue: any) => void,
     parentKey?: string,
     alreadyCloned?: Map<any, GlobalState<any>>
@@ -397,6 +413,17 @@ class GlobalState<T> {
         return r;
       };
 
+
+      const setType = (key: string, val: any) => {
+        if (val === undefined || val === null || this.getProp().keyType.has(key))
+          return;
+        let valueType = typeof val as string;
+        if (Array.isArray(val) && valueType == "object") {
+          valueType = "array";
+        }
+        this.getProp().keyType.set(key, valueType);
+      }
+
       const setDummes = (key: string, value: any) => {
         let fn = undefined;
         let fnText = '';
@@ -404,7 +431,7 @@ class GlobalState<T> {
           value = JSON.parse(toJSON(value));
         try {
           if (key.indexOf('.') === -1)
-            fn = new Function('x', 'value', `x.${key} = value`);
+            fn = new Function('x', "i", 'value', `x.${key} = value`);
           else {
             const keys = key.split('.');
             let k = 'x.';
@@ -412,21 +439,24 @@ class GlobalState<T> {
               if (i < key.length - 1 && keys[i + 1] != undefined) {
                 k += x;
                 let nextKey = keys[i + 1];
-                fnText += `if (${k} === undefined || ${k} === null)
-                                  ${k} = {${nextKey}:undefined} \n
-                                 
-                                    `;
+                fnText += `
+                        if (${k} === undefined || ${k} === null){
+                                  if((!i.has("${k}".substring(1)) || i.get("${k}".substring(1)) == "object"))
+                                      ${k} = {${nextKey}:undefined}
+                                  else if (i.get("${k}".substring(1)) == "array") ${k} = [];
+                                  else ${k} = undefined;
+                                 }
+                                `;
                 k += '.';
               } else {
                 k += x;
                 fnText += `${k}= value`;
               }
             });
-            // console.log(fnText)
-            fn = new Function('x', 'value', fnText);
+            fn = new Function('x', "i", 'value', fnText);
           }
 
-          fn(dummes, value);
+          fn(dummes, this.getProp().keyType, value);
         } catch (e) {
           console.error(e);
           console.info(fnText);
@@ -466,7 +496,8 @@ class GlobalState<T> {
               prKey(key)
             );
           }
-          setDummes(prKey(key), clone(val, val));
+
+          setType(prKey(key), val)
           Object.defineProperty(this, key, {
             get: () => val,
             set: (value) => {
@@ -508,8 +539,10 @@ class GlobalState<T> {
                     prKey(key)
                   );
                 }
+
                 const oldValue = item[key];
                 item[key] = oValue;
+                setType(prKey(key), oValue);
                 setDummes(prKey(key), clone(oValue, oldValue));
                 val = value;
                 if (trigger && value !== oldValue) {
@@ -564,11 +597,9 @@ export default <T>(
   disableTimer?: boolean,
   onChange?: (item: any, props: ValueChange[]) => void
 ) => {
-  const id = ++ids.id;
+  const id = uid();
   const methods = new Methods(disableTimer ?? false, onChange);
   __Properties.set(id, methods);
-  methods.execludedKeys = execludeComponentsFromMutations
-    ? getColumns(execludeComponentsFromMutations)
-    : [];
+  methods.execludedKeys = execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : [];
   return new GlobalState<T>(item, id) as any as T & IGlobalState<T>;
 };

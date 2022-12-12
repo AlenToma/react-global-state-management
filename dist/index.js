@@ -72,7 +72,16 @@ var Identifier = /** @class */ (function () {
     };
     return Identifier;
 }());
-var ids = { id: 0 };
+var ids = new Map();
+var uid = function (sId) {
+    if (!sId)
+        sId = "";
+    var id = Date.now().toString(36) + Math.random().toString(36).substring(2) + sId;
+    if (ids.has(id))
+        return uid(id);
+    ids.set(id, id);
+    return id;
+};
 var Methods = /** @class */ (function () {
     function Methods(disableTimer, onChange) {
         this.dummes = undefined;
@@ -81,6 +90,7 @@ var Methods = /** @class */ (function () {
         this.execludedKeys = [];
         this.disableTimer = disableTimer;
         this.onChange = onChange;
+        this.keyType = new Map();
     }
     return Methods;
 }());
@@ -238,6 +248,15 @@ var GlobalState = /** @class */ (function () {
                 }
                 return r;
             };
+            var setType_1 = function (key, val) {
+                if (val === undefined || val === null || _this.getProp().keyType.has(key))
+                    return;
+                var valueType = typeof val;
+                if (Array.isArray(val) && valueType == "object") {
+                    valueType = "array";
+                }
+                _this.getProp().keyType.set(key, valueType);
+            };
             var setDummes_1 = function (key, value) {
                 var fn = undefined;
                 var fnText = '';
@@ -245,7 +264,7 @@ var GlobalState = /** @class */ (function () {
                     value = JSON.parse(toJSON(value));
                 try {
                     if (key.indexOf('.') === -1)
-                        fn = new Function('x', 'value', "x." + key + " = value");
+                        fn = new Function('x', "i", 'value', "x." + key + " = value");
                     else {
                         var keys_2 = key.split('.');
                         var k_1 = 'x.';
@@ -253,7 +272,7 @@ var GlobalState = /** @class */ (function () {
                             if (i < key.length - 1 && keys_2[i + 1] != undefined) {
                                 k_1 += x;
                                 var nextKey = keys_2[i + 1];
-                                fnText += "if (" + k_1 + " === undefined || " + k_1 + " === null)\n                                  " + k_1 + " = {" + nextKey + ":undefined} \n\n                                 \n                                    ";
+                                fnText += "\n                        if (" + k_1 + " === undefined || " + k_1 + " === null){\n                                  if((!i.has(\"" + k_1 + "\".substring(1)) || i.get(\"" + k_1 + "\".substring(1)) == \"object\"))\n                                      " + k_1 + " = {" + nextKey + ":undefined}\n                                  else if (i.get(\"" + k_1 + "\".substring(1)) == \"array\") " + k_1 + " = [];\n                                  else " + k_1 + " = undefined;\n                                 }\n                                ";
                                 k_1 += '.';
                             }
                             else {
@@ -261,10 +280,9 @@ var GlobalState = /** @class */ (function () {
                                 fnText += k_1 + "= value";
                             }
                         });
-                        // console.log(fnText)
-                        fn = new Function('x', 'value', fnText);
+                        fn = new Function('x', "i", 'value', fnText);
                     }
-                    fn(dummes, value);
+                    fn(dummes, _this.getProp().keyType, value);
                 }
                 catch (e) {
                     console.error(e);
@@ -292,7 +310,7 @@ var GlobalState = /** @class */ (function () {
                     else if (val_1 && Array.isArray(val_1) && typeof val_1 !== 'string') {
                         val_1 = createArray(val_1, onCreate_1.bind(this_1), trigger === null || trigger === void 0 ? void 0 : trigger.bind(this_1), prKey_1(key));
                     }
-                    setDummes_1(prKey_1(key), clone(val_1, val_1));
+                    setType_1(prKey_1(key), val_1);
                     Object.defineProperty(this_1, key, {
                         get: function () { return val_1; },
                         set: function (value) {
@@ -320,6 +338,7 @@ var GlobalState = /** @class */ (function () {
                                 }
                                 var oldValue = item[key];
                                 item[key] = oValue;
+                                setType_1(prKey_1(key), oValue);
                                 setDummes_1(prKey_1(key), clone(oValue, oldValue));
                                 val_1 = value;
                                 if (trigger && value !== oldValue) {
@@ -365,7 +384,7 @@ var GlobalState = /** @class */ (function () {
             var ref_1 = rAny.useRef(0);
             var events = this.getProp().events;
             if (ref_1.current === 0) {
-                ref_1.current = ++ids.id;
+                ref_1.current = uid();
                 var event_1 = new Identifier(ref_1.current, func, 0, items, identifier);
                 if (!events.find(function (x) { return x.id == event_1.id; }))
                     events.push(event_1.init(this.getProp().dummes));
@@ -378,6 +397,7 @@ var GlobalState = /** @class */ (function () {
             rAny.useEffect(function () {
                 return function () {
                     _this.unsubscribe(ref_1.current);
+                    ids["delete"](ref_1.current);
                 };
             }, []);
             return this;
@@ -394,11 +414,14 @@ var GlobalState = /** @class */ (function () {
             var _a = rAny.useState(0), counter = _a[0], setCounter = _a[1];
             var ref_2 = rAny.useRef(0);
             if (ref_2.current === 0) {
-                ref_2.current = ++ids.id;
+                ref_2.current = uid();
             }
             this.addHook(new Identifier(ref_2.current, setCounter, counter, items, identifier));
             rAny.useEffect(function () {
-                return function () { return _this.removeHook(ref_2.current); };
+                return function () {
+                    _this.removeHook(ref_2.current);
+                    ids["delete"](ref_2.current);
+                };
             }, []);
             return this;
         }
@@ -500,12 +523,10 @@ var getColumns = function (fn, skipFirst) {
     return str.split(',');
 };
 export default (function (item, execludeComponentsFromMutations, disableTimer, onChange) {
-    var id = ++ids.id;
+    var id = uid();
     var methods = new Methods(disableTimer !== null && disableTimer !== void 0 ? disableTimer : false, onChange);
     __Properties.set(id, methods);
-    methods.execludedKeys = execludeComponentsFromMutations
-        ? getColumns(execludeComponentsFromMutations)
-        : [];
+    methods.execludedKeys = execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : [];
     return new GlobalState(item, id);
 });
 //# sourceMappingURL=index.js.map
