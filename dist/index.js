@@ -27,6 +27,9 @@ var __ignoreKeys = [
     'unsubscribe',
     'addHook',
     'removeHook',
+    "triggerChange",
+    "getProp",
+    "stringify"
 ];
 var toKeyValue = function (v) {
     if (v == undefined || v == null)

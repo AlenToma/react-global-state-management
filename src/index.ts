@@ -9,6 +9,9 @@ const __ignoreKeys = [
   'unsubscribe',
   'addHook',
   'removeHook',
+  "triggerChange",
+  "getProp",
+  "stringify"
 ];
 
 const toKeyValue = (v?: any) => {
