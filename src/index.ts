@@ -9,81 +9,68 @@ const __ignoreKeys = [
   'unsubscribe',
   'addHook',
   'removeHook',
-  "triggerChange",
-  "getProp",
-  "stringify"
+  'triggerChange',
+  'getProp',
+  'stringify',
 ];
 
-const toKeyValue = (v?: any) => {
-  if (v == undefined || v == null) return undefined;
-  try {
-    if (typeof v === 'object' && typeof v != 'string') return toJSON(v);
-    else return v.toString();
-  } catch (e) {
-    console.error(e);
-    return v.toString();
-  }
+type NestedKeyOf<
+  T extends object,
+  D extends any[] = [0, 0, 0, 0, 0, 0, 0, 0]
+> = D extends [any, ...infer DD]
+  ? {
+    [K in keyof T & (string | number)]: T[K] extends object
+    ? `${K}` | `${K}.${NestedKeyOf<T[K], DD>}`
+    : `${K}`;
+  }[keyof T & (string | number)]
+  : never;
+
+type IIdentifier = {
+  addIdentifier: (identifier: string) => void;
 };
 
-const clone = (item: any, old: any) => {
-  if (item === undefined || item == null) {
-    if (old && Array.isArray(old)) return [];
-    return {};
-  }
-  if (typeof item === 'object' && !Array.isArray(item)) return { ...item };
-
-  return item;
-};
-
-class Identifier<T> {
+class Identifier<T extends object> implements IIdentifier {
   id: string;
   data: T;
   counter: number;
-  cols?: MutatedItems<T, any>;
-  json?: string;
+  cols?: NestedKeyOf<T>[];
   identifier?: string;
   constructor(
     id: string,
     data: T,
     counter: number,
-    cols?: MutatedItems<T, any>,
+    cols?: NestedKeyOf<T>[],
     identifier?: string
   ) {
     this.id = id;
     this.data = data;
     this.counter = counter;
-    this.cols = cols;
+    this.cols = cols && cols.length > 0 ? cols : undefined;
     this.identifier = identifier;
   }
 
-  init(parent: any) {
-    try {
-      if (this.cols) this.json = toKeyValue(this.cols(parent));
-    } catch (e) {
-      console.error(e);
-    }
-    return this;
+  addIdentifier(identifier: string) {
+    this.identifier = identifier;
   }
 }
 const ids = new Map<string, string>();
 const uid = (sId?: any): string => {
-  if (!sId)
-    sId = "";
-  const id = Date.now().toString(36) + Math.random().toString(36).substring(2) + sId;
-  if (ids.has(id))
-    return uid(id);
+  if (!sId) sId = '';
+  const id =
+    Date.now().toString(36) + Math.random().toString(36).substring(2) + sId;
+  if (ids.has(id)) return uid(id);
   ids.set(id, id);
   return id;
-}
+};
 
 class Methods {
-  dummes = undefined as any;
   events = [] as Identifier<Function>[];
   hooks = [] as Identifier<Function>[];
   execludedKeys = [] as string[];
   disableTimer: boolean;
   onChange?: (item: any, props: ValueChange[]) => void;
   keyType: Map<string, string>;
+  funcs: Map<string, Function>;
   constructor(
     disableTimer: boolean,
     onChange?: (item: any, props: ValueChange[]) => void
@@ -91,22 +78,18 @@ class Methods {
     this.disableTimer = disableTimer;
     this.onChange = onChange;
     this.keyType = new Map();
+    this.funcs = new Map();
   }
 }
 
 const __Properties = new Map<string, Methods>();
-type MutatedItems<T, B> = (x: T) => B[];
 
-export type IGlobalState<T> = {
-  subscribe: <B>(
+export type IGlobalState<T extends object> = {
+  subscribe: (
     func: (item: T, props: ValueChange[]) => void,
-    cols?: MutatedItems<T, B>,
-    identifier?: string
-  ) => T & IGlobalState<T>;
-  hook: <B>(
-    cols?: MutatedItems<T, B>,
-    identifier?: string
-  ) => T & IGlobalState<T>;
+    ...cols: NestedKeyOf<T>[]
+  ) => IIdentifier;
+  hook: (...cols: NestedKeyOf<T>[]) => IIdentifier;
   stringify: () => string;
   triggerChange: (toOnChange?: boolean, ...identifier: string[]) => void;
 };
@@ -125,7 +108,7 @@ const assign = (item: any, id: any) => {
 /**
  * @type Class
  */
-class GlobalState<T> {
+class GlobalState<T extends object> {
   private getProp(): Methods {
     if (!__Properties.has((this as any).____id))
       __Properties.set((this as any).____id, new Methods(false));
@@ -136,10 +119,9 @@ class GlobalState<T> {
     return toJSON(this);
   }
 
-  subscribe<B>(
+  subscribe(
     func: (item: T, props: ValueChange[]) => void,
-    items?: MutatedItems<T, B>,
-    identifier?: string
+    ...items: NestedKeyOf<T>[]
   ) {
     try {
       const rAny = React as any;
@@ -149,13 +131,17 @@ class GlobalState<T> {
         ref.current = uid();
         const event = new Identifier<Function>(
           ref.current,
-          func,
+          (item: T, props: ValueChange[]) => {
+            try {
+              func(item, props);
+            } catch (e) {
+              console.error(e);
+            }
+          },
           0,
-          items as any,
-          identifier
+          items as any
         );
-        if (!events.find((x) => x.id == event.id))
-          events.push(event.init(this.getProp().dummes));
+        if (!events.find((x) => x.id == event.id)) events.push(event);
       } else {
         const e = events.find((x) => x.id === ref.current);
         if (e) e.data = func;
@@ -168,39 +154,46 @@ class GlobalState<T> {
         };
       }, []);
 
-      return this;
+      return events.find((x) => x.id == ref.current) as Identifier<T>;
     } catch (e) {
       console.error(e);
       throw e;
     }
   }
 
-  hook<B>(items?: MutatedItems<T, B>, identifier?: string) {
+  hook(...items: NestedKeyOf<T>[]) {
     try {
       const rAny = React as any;
       const [counter, setCounter] = rAny.useState(0);
       const ref = rAny.useRef(0);
-
       if (ref.current === 0) {
         ref.current = uid();
       }
       this.addHook(
         new Identifier<Function>(
           ref.current,
-          setCounter,
+          (v: number) => {
+            try {
+              setCounter(v);
+            } catch (e) {
+              console.warn('Component is unmounted');
+              this.removeHook(ref.current);
+            }
+          },
           counter,
-          items as any,
-          identifier
+          items as any
         )
       );
       rAny.useEffect(() => {
         return () => {
           this.removeHook(ref.current);
           ids.delete(ref.current);
-        }
+        };
       }, []);
 
-      return this;
+      return this.getProp().hooks.find(
+        (x) => x.id == ref.current
+      ) as Identifier<T>;
     } catch (e) {
       console.error(e);
       throw e;
@@ -209,7 +202,6 @@ class GlobalState<T> {
 
   triggerChange(toOnChange?: boolean, ...identifiers: string[]) {
     const methods = this.getProp();
-    let dummes = methods.dummes;
     const events = methods.events;
     const hooks = methods.hooks;
     const cEvents = [] as { props: ValueChange[]; e: Identifier<Function> }[];
@@ -239,7 +231,7 @@ class GlobalState<T> {
     }
 
     if (toOnChange) methods.onChange?.(this, []);
-    cEvents.forEach((x) => x.e.data(dummes, x.props));
+    cEvents.forEach((x) => x.e.data(this, x.props));
     chooks.forEach((x) => {
       x.data(x.counter + 1);
     });
@@ -265,7 +257,7 @@ class GlobalState<T> {
         break;
       }
 
-    if (addValue) items.push(value.init(this.getProp().dummes));
+    if (addValue) items.push(value);
   }
 
   private removeHook(value: string) {
@@ -283,11 +275,8 @@ class GlobalState<T> {
   ) {
     const $thisAny = this as any;
     if ($thisAny.____id === undefined) assign(this, id);
-    if (this.getProp().dummes == undefined)
-      this.getProp().dummes = JSON.parse(toJSON(tItem));
     if (!alreadyCloned) alreadyCloned = new Map();
     const item = tItem as any;
-    let dummes = this.getProp().dummes;
     try {
       if (!parentKey) parentKey = '';
 
@@ -322,12 +311,17 @@ class GlobalState<T> {
             propsChanged.push(prop);
             if (!methods.disableTimer) clearTimeout(timer);
             const events = methods.events;
+            const keyIncluded = (cols: string[]) => {
+              for (let c of cols) {
+                if (c === key) return true;
+                if (c.indexOf('.') != -1 && c.indexOf(key) != -1) return true;
+              }
+              return false;
+            };
             for (const e of events) {
               let add = true;
-              if (e.cols) {
-                const s1 = toKeyValue(e.cols(dummes));
-                if (s1 === e.json) add = false;
-                e.json = s1;
+              if (e.cols && !keyIncluded(e.cols)) {
+                add = false;
               }
               if (add) {
                 if (caller.find((x) => x.e == e))
@@ -338,17 +332,15 @@ class GlobalState<T> {
 
             for (const e of methods.hooks) {
               let add = true;
-              if (e.cols) {
-                const s1 = toKeyValue(e.cols(dummes));
-                if (s1 === e.json) add = false;
-                e.json = s1;
+              if (e.cols && !keyIncluded(e.cols)) {
+                add = false;
               }
               if (add) hooks.push(e);
             }
 
             const fn = () => {
               methods.onChange?.(this, propsChanged);
-              caller.forEach((x) => x.e.data(dummes, x.props));
+              caller.forEach((x) => x.e.data(this, x.props));
               hooks.forEach((x) => {
                 x.data(x.counter + 1);
               });
@@ -405,6 +397,7 @@ class GlobalState<T> {
       const isExecluded = (key: string) => {
         const execludedKeys = this.getProp().execludedKeys;
         let r = false;
+
         if (execludedKeys === undefined) r = false;
         else {
           if (
@@ -416,55 +409,20 @@ class GlobalState<T> {
         return r;
       };
 
-
       const setType = (key: string, val: any) => {
-        if (val === undefined || val === null || this.getProp().keyType.has(key))
+        if (
+          val === undefined ||
+          val === null ||
+          this.getProp().keyType.has(key)
+        )
           return;
         let valueType = typeof val as string;
-        if (Array.isArray(val) && valueType == "object") {
-          valueType = "array";
+        if (Array.isArray(val) && valueType == 'object') {
+          valueType = 'array';
         }
         this.getProp().keyType.set(key, valueType);
-      }
-
-      const setDummes = (key: string, value: any) => {
-        let fn = undefined;
-        let fnText = '';
-        if (value && typeof value === 'object')
-          value = JSON.parse(toJSON(value));
-        try {
-          if (key.indexOf('.') === -1)
-            fn = new Function('x', "i", 'value', `x.${key} = value`);
-          else {
-            const keys = key.split('.');
-            let k = 'x.';
-            keys.forEach((x, i) => {
-              if (i < key.length - 1 && keys[i + 1] != undefined) {
-                k += x;
-                let nextKey = keys[i + 1];
-                fnText += `
-                        if (${k} === undefined || ${k} === null){
-                                  if((!i.has("${k}".substring(1)) || i.get("${k}".substring(1)) == "object"))
-                                      ${k} = {${nextKey}:undefined}
-                                  else if (i.get("${k}".substring(1)) == "array") ${k} = [];
-                                  else ${k} = undefined;
-                                 }
-                                `;
-                k += '.';
-              } else {
-                k += x;
-                fnText += `${k}= value`;
-              }
-            });
-            fn = new Function('x', "i", 'value', fnText);
-          }
-
-          fn(dummes, this.getProp().keyType, value);
-        } catch (e) {
-          console.error(e);
-          console.info(fnText);
-        }
       };
+
       for (let key of keys) {
         try {
           let val = item[key];
@@ -500,7 +458,7 @@ class GlobalState<T> {
             );
           }
 
-          setType(prKey(key), val)
+          setType(prKey(key), val);
           Object.defineProperty(this, key, {
             get: () => val,
             set: (value) => {
@@ -546,7 +504,6 @@ class GlobalState<T> {
                 const oldValue = item[key];
                 item[key] = oValue;
                 setType(prKey(key), oValue);
-                setDummes(prKey(key), clone(oValue, oldValue));
                 val = value;
                 if (trigger && value !== oldValue) {
                   trigger(prKey(key), oldValue, value);
@@ -594,15 +551,17 @@ const getColumns = (fn: Function, skipFirst?: boolean) => {
   return str.split(',');
 };
 
-export default <T>(
+export default <T extends object>(
   item: T,
-  execludeComponentsFromMutations?: MutatedItems<T, any>,
+  execludeComponentsFromMutations?: NestedKeyOf<T>[],
   disableTimer?: boolean,
   onChange?: (item: any, props: ValueChange[]) => void
 ) => {
   const id = uid();
   const methods = new Methods(disableTimer ?? false, onChange);
   __Properties.set(id, methods);
-  methods.execludedKeys = execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : [];
+  methods.execludedKeys = execludeComponentsFromMutations
+    ? getColumns(('function ' + execludeComponentsFromMutations) as any)
+    : [];
   return new GlobalState<T>(item, id) as any as T & IGlobalState<T>;
 };

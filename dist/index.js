@@ -1,20 +1,11 @@
-var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
         }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
-var __spreadArrays = (this && this.__spreadArrays) || function () {
-    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
-    for (var r = Array(s), k = 0, i = 0; i < il; i++)
-        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
-            r[k] = a[j];
-    return r;
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
 import * as React from 'react';
 import createArray from './CustomArray';
@@ -27,58 +18,27 @@ var __ignoreKeys = [
     'unsubscribe',
     'addHook',
     'removeHook',
-    "triggerChange",
-    "getProp",
-    "stringify"
+    'triggerChange',
+    'getProp',
+    'stringify',
 ];
-var toKeyValue = function (v) {
-    if (v == undefined || v == null)
-        return undefined;
-    try {
-        if (typeof v === 'object' && typeof v != 'string')
-            return toJSON(v);
-        else
-            return v.toString();
-    }
-    catch (e) {
-        console.error(e);
-        return v.toString();
-    }
-};
-var clone = function (item, old) {
-    if (item === undefined || item == null) {
-        if (old && Array.isArray(old))
-            return [];
-        return {};
-    }
-    if (typeof item === 'object' && !Array.isArray(item))
-        return __assign({}, item);
-    return item;
-};
 var Identifier = /** @class */ (function () {
     function Identifier(id, data, counter, cols, identifier) {
         this.id = id;
         this.data = data;
         this.counter = counter;
-        this.cols = cols;
+        this.cols = cols && cols.length > 0 ? cols : undefined;
         this.identifier = identifier;
     }
-    Identifier.prototype.init = function (parent) {
-        try {
-            if (this.cols)
-                this.json = toKeyValue(this.cols(parent));
-        }
-        catch (e) {
-            console.error(e);
-        }
-        return this;
+    Identifier.prototype.addIdentifier = function (identifier) {
+        this.identifier = identifier;
     };
     return Identifier;
 }());
 var ids = new Map();
 var uid = function (sId) {
     if (!sId)
-        sId = "";
+        sId = '';
     var id = Date.now().toString(36) + Math.random().toString(36).substring(2) + sId;
     if (ids.has(id))
         return uid(id);
@@ -87,13 +47,13 @@ var uid = function (sId) {
 };
 var Methods = /** @class */ (function () {
     function Methods(disableTimer, onChange) {
-        this.dummes = undefined;
         this.events = [];
         this.hooks = [];
         this.execludedKeys = [];
         this.disableTimer = disableTimer;
         this.onChange = onChange;
         this.keyType = new Map();
+        this.funcs = new Map();
     }
     return Methods;
 }());
@@ -111,12 +71,9 @@ var GlobalState = /** @class */ (function () {
         var $thisAny = this;
         if ($thisAny.____id === undefined)
             assign(this, id);
-        if (this.getProp().dummes == undefined)
-            this.getProp().dummes = JSON.parse(toJSON(tItem));
         if (!alreadyCloned)
             alreadyCloned = new Map();
         var item = tItem;
-        var dummes = this.getProp().dummes;
         try {
             if (!parentKey)
                 parentKey = '';
@@ -150,13 +107,20 @@ var GlobalState = /** @class */ (function () {
                         if (!methods_1.disableTimer)
                             clearTimeout(timer_1);
                         var events = methods_1.events;
+                        var keyIncluded = function (cols) {
+                            for (var _i = 0, cols_1 = cols; _i < cols_1.length; _i++) {
+                                var c = cols_1[_i];
+                                if (c === key)
+                                    return true;
+                                if (c.indexOf('.') != -1 && c.indexOf(key) != -1)
+                                    return true;
+                            }
+                            return false;
+                        };
                         var _loop_2 = function (e) {
                             var add = true;
-                            if (e.cols) {
-                                var s1 = toKeyValue(e.cols(dummes));
-                                if (s1 === e.json)
-                                    add = false;
-                                e.json = s1;
+                            if (e.cols && !keyIncluded(e.cols)) {
+                                add = false;
                             }
                             if (add) {
                                 if (caller_1.find(function (x) { return x.e == e; }))
@@ -172,11 +136,8 @@ var GlobalState = /** @class */ (function () {
                         for (var _b = 0, _c = methods_1.hooks; _b < _c.length; _b++) {
                             var e = _c[_b];
                             var add = true;
-                            if (e.cols) {
-                                var s1 = toKeyValue(e.cols(dummes));
-                                if (s1 === e.json)
-                                    add = false;
-                                e.json = s1;
+                            if (e.cols && !keyIncluded(e.cols)) {
+                                add = false;
                             }
                             if (add)
                                 hooks_1.push(e);
@@ -184,7 +145,7 @@ var GlobalState = /** @class */ (function () {
                         var fn_1 = function () {
                             var _a;
                             (_a = methods_1.onChange) === null || _a === void 0 ? void 0 : _a.call(methods_1, _this, propsChanged_1);
-                            caller_1.forEach(function (x) { return x.e.data(dummes, x.props); });
+                            caller_1.forEach(function (x) { return x.e.data(_this, x.props); });
                             hooks_1.forEach(function (x) {
                                 x.data(x.counter + 1);
                             });
@@ -207,7 +168,7 @@ var GlobalState = /** @class */ (function () {
             var prototype = Object.getPrototypeOf(item);
             if (prototype !== undefined && prototype != null) {
                 var ignoreKyes_1 = Object.getOwnPropertyNames(Object.prototype);
-                keys = __spreadArrays(keys, Object.getOwnPropertyNames(prototype)).filter(function (x) { return !ignoreKyes_1.includes(x); });
+                keys = __spreadArray(__spreadArray([], keys, true), Object.getOwnPropertyNames(prototype), true).filter(function (x) { return !ignoreKyes_1.includes(x); });
             }
             var onCreate_1 = function (key, data) {
                 if (!alreadyCloned)
@@ -252,45 +213,15 @@ var GlobalState = /** @class */ (function () {
                 return r;
             };
             var setType_1 = function (key, val) {
-                if (val === undefined || val === null || _this.getProp().keyType.has(key))
+                if (val === undefined ||
+                    val === null ||
+                    _this.getProp().keyType.has(key))
                     return;
                 var valueType = typeof val;
-                if (Array.isArray(val) && valueType == "object") {
-                    valueType = "array";
+                if (Array.isArray(val) && valueType == 'object') {
+                    valueType = 'array';
                 }
                 _this.getProp().keyType.set(key, valueType);
-            };
-            var setDummes_1 = function (key, value) {
-                var fn = undefined;
-                var fnText = '';
-                if (value && typeof value === 'object')
-                    value = JSON.parse(toJSON(value));
-                try {
-                    if (key.indexOf('.') === -1)
-                        fn = new Function('x', "i", 'value', "x." + key + " = value");
-                    else {
-                        var keys_2 = key.split('.');
-                        var k_1 = 'x.';
-                        keys_2.forEach(function (x, i) {
-                            if (i < key.length - 1 && keys_2[i + 1] != undefined) {
-                                k_1 += x;
-                                var nextKey = keys_2[i + 1];
-                                fnText += "\n                        if (" + k_1 + " === undefined || " + k_1 + " === null){\n                                  if((!i.has(\"" + k_1 + "\".substring(1)) || i.get(\"" + k_1 + "\".substring(1)) == \"object\"))\n                                      " + k_1 + " = {" + nextKey + ":undefined}\n                                  else if (i.get(\"" + k_1 + "\".substring(1)) == \"array\") " + k_1 + " = [];\n                                  else " + k_1 + " = undefined;\n                                 }\n                                ";
-                                k_1 += '.';
-                            }
-                            else {
-                                k_1 += x;
-                                fnText += k_1 + "= value";
-                            }
-                        });
-                        fn = new Function('x', "i", 'value', fnText);
-                    }
-                    fn(dummes, _this.getProp().keyType, value);
-                }
-                catch (e) {
-                    console.error(e);
-                    console.info(fnText);
-                }
             };
             var _loop_1 = function (key) {
                 try {
@@ -342,7 +273,6 @@ var GlobalState = /** @class */ (function () {
                                 var oldValue = item[key];
                                 item[key] = oValue;
                                 setType_1(prKey_1(key), oValue);
-                                setDummes_1(prKey_1(key), clone(oValue, oldValue));
                                 val_1 = value;
                                 if (trigger && value !== oldValue) {
                                     trigger(prKey_1(key), oldValue, value);
@@ -380,17 +310,28 @@ var GlobalState = /** @class */ (function () {
     GlobalState.prototype.stringify = function () {
         return toJSON(this);
     };
-    GlobalState.prototype.subscribe = function (func, items, identifier) {
+    GlobalState.prototype.subscribe = function (func) {
         var _this = this;
+        var items = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            items[_i - 1] = arguments[_i];
+        }
         try {
             var rAny = React;
             var ref_1 = rAny.useRef(0);
             var events = this.getProp().events;
             if (ref_1.current === 0) {
                 ref_1.current = uid();
-                var event_1 = new Identifier(ref_1.current, func, 0, items, identifier);
+                var event_1 = new Identifier(ref_1.current, function (item, props) {
+                    try {
+                        func(item, props);
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
+                }, 0, items);
                 if (!events.find(function (x) { return x.id == event_1.id; }))
-                    events.push(event_1.init(this.getProp().dummes));
+                    events.push(event_1);
             }
             else {
                 var e = events.find(function (x) { return x.id === ref_1.current; });
@@ -403,30 +344,42 @@ var GlobalState = /** @class */ (function () {
                     ids["delete"](ref_1.current);
                 };
             }, []);
-            return this;
+            return events.find(function (x) { return x.id == ref_1.current; });
         }
         catch (e) {
             console.error(e);
             throw e;
         }
     };
-    GlobalState.prototype.hook = function (items, identifier) {
+    GlobalState.prototype.hook = function () {
         var _this = this;
+        var items = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            items[_i] = arguments[_i];
+        }
         try {
             var rAny = React;
-            var _a = rAny.useState(0), counter = _a[0], setCounter = _a[1];
+            var _a = rAny.useState(0), counter = _a[0], setCounter_1 = _a[1];
             var ref_2 = rAny.useRef(0);
             if (ref_2.current === 0) {
                 ref_2.current = uid();
             }
-            this.addHook(new Identifier(ref_2.current, setCounter, counter, items, identifier));
+            this.addHook(new Identifier(ref_2.current, function (v) {
+                try {
+                    setCounter_1(v);
+                }
+                catch (e) {
+                    console.warn('Component is unmounted');
+                    _this.removeHook(ref_2.current);
+                }
+            }, counter, items));
             rAny.useEffect(function () {
                 return function () {
                     _this.removeHook(ref_2.current);
                     ids["delete"](ref_2.current);
                 };
             }, []);
-            return this;
+            return this.getProp().hooks.find(function (x) { return x.id == ref_2.current; });
         }
         catch (e) {
             console.error(e);
@@ -434,13 +387,13 @@ var GlobalState = /** @class */ (function () {
         }
     };
     GlobalState.prototype.triggerChange = function (toOnChange) {
+        var _this = this;
         var _a;
         var identifiers = [];
         for (var _i = 1; _i < arguments.length; _i++) {
             identifiers[_i - 1] = arguments[_i];
         }
         var methods = this.getProp();
-        var dummes = methods.dummes;
         var events = methods.events;
         var hooks = methods.hooks;
         var cEvents = [];
@@ -472,7 +425,7 @@ var GlobalState = /** @class */ (function () {
         }
         if (toOnChange)
             (_a = methods.onChange) === null || _a === void 0 ? void 0 : _a.call(methods, this, []);
-        cEvents.forEach(function (x) { return x.e.data(dummes, x.props); });
+        cEvents.forEach(function (x) { return x.e.data(_this, x.props); });
         chooks.forEach(function (x) {
             x.data(x.counter + 1);
         });
@@ -495,7 +448,7 @@ var GlobalState = /** @class */ (function () {
             }
         }
         if (addValue)
-            items.push(value.init(this.getProp().dummes));
+            items.push(value);
     };
     GlobalState.prototype.removeHook = function (value) {
         var item = this.getProp().hooks;
@@ -529,7 +482,9 @@ export default (function (item, execludeComponentsFromMutations, disableTimer, o
     var id = uid();
     var methods = new Methods(disableTimer !== null && disableTimer !== void 0 ? disableTimer : false, onChange);
     __Properties.set(id, methods);
-    methods.execludedKeys = execludeComponentsFromMutations ? getColumns(execludeComponentsFromMutations) : [];
+    methods.execludedKeys = execludeComponentsFromMutations
+        ? getColumns(('function ' + execludeComponentsFromMutations))
+        : [];
     return new GlobalState(item, id);
 });
 //# sourceMappingURL=index.js.map
