@@ -88,7 +88,7 @@ Rebuild the component when a change happened
 hook() OR hook("item.counter", ...)
 ```
 
-`Subscribe` to changes when the global data change. This works like useEffect except You will have more control over you updates and this will not trigger rebuild
+`Subscribe` to changes when the global data change. This works like useEffect except You will have more control over your updates and this will not trigger rebuild
 ```js
 // global
 data.subscribe(
