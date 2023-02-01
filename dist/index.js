@@ -114,6 +114,8 @@ var GlobalState = /** @class */ (function () {
                                     return true;
                                 if (c.indexOf('.') != -1 && c.indexOf(key) != -1)
                                     return true;
+                                if (key.indexOf(".") != -1 && key.indexOf(c) != -1)
+                                    return true;
                             }
                             return false;
                         };
