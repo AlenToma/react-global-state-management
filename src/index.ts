@@ -16,7 +16,7 @@ const __ignoreKeys = [
 
 type NestedKeyOf<
   T extends object,
-  D extends any[] = [0, 0, 0, 0, 0, 0, 0, 0]
+  D extends any[] = [0, 0, 0, 0, 0]
 > = D extends [any, ...infer DD]
   ? {
     [K in keyof T & (string | number)]: T[K] extends object
