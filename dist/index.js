@@ -23,7 +23,7 @@ var __ignoreKeys = [
     'stringify',
 ];
 var readFromKey = function (str, item) {
-    var keys = str.split(".").filter(function (x) { return x.length > 0; });
+    var keys = str.split('.').filter(function (x) { return x.length > 0; });
     var currentItem = item;
     keys.forEach(function (x) {
         if (currentItem !== undefined)
@@ -38,7 +38,21 @@ var Identifier = /** @class */ (function () {
         this.counter = counter;
         this.cols = cols && cols.length > 0 ? cols : undefined;
         this.identifier = identifier;
+        this.bindValues = new Map();
     }
+    Identifier.prototype.bind = function (item) {
+        var _this = this;
+        this.bindValues.clear();
+        if (this.cols)
+            this.cols.forEach(function (x) {
+                if (x.indexOf('.') !== -1) {
+                    var value = readFromKey(x, item);
+                    if (!(typeof value == 'object' || typeof value == 'function'))
+                        _this.bindValues.set(x, value);
+                }
+            });
+        return this;
+    };
     Identifier.prototype.addIdentifier = function (identifier) {
         this.identifier = identifier;
     };
@@ -116,21 +130,31 @@ var GlobalState = /** @class */ (function () {
                         if (!methods_1.disableTimer)
                             clearTimeout(timer_1);
                         var events = methods_1.events;
-                        var keyIncluded = function (cols) {
-                            for (var _i = 0, cols_1 = cols; _i < cols_1.length; _i++) {
-                                var c = cols_1[_i];
+                        var diffValues_1 = function (e, key0) {
+                            var n = readFromKey(key0, _this);
+                            if (!e.bindValues.has(key0))
+                                return false;
+                            if (e.bindValues.get(key0) !== n)
+                                return true;
+                            return false;
+                        };
+                        var keyIncluded = function (e) {
+                            for (var _i = 0, _a = e.cols || []; _i < _a.length; _i++) {
+                                var c = _a[_i];
                                 if (c === key)
                                     return true;
-                                if (c.indexOf('.') != -1 && c.indexOf(key) != -1)
+                                if (c.indexOf('.') != -1 &&
+                                    c.indexOf(key) != -1 &&
+                                    diffValues_1(e, c))
                                     return true;
-                                if (key.indexOf(".") != -1 && key.indexOf(c) != -1)
+                                if (key.indexOf('.') != -1 && key.indexOf(c) != -1)
                                     return true;
                             }
                             return false;
                         };
                         var _loop_2 = function (e) {
                             var add = true;
-                            if (e.cols && !keyIncluded(e.cols)) {
+                            if (e.cols && !keyIncluded(e)) {
                                 add = false;
                             }
                             if (add) {
@@ -147,7 +171,7 @@ var GlobalState = /** @class */ (function () {
                         for (var _b = 0, _c = methods_1.hooks; _b < _c.length; _b++) {
                             var e = _c[_b];
                             var add = true;
-                            if (e.cols && !keyIncluded(e.cols)) {
+                            if (e.cols && !keyIncluded(e)) {
                                 add = false;
                             }
                             if (add)
@@ -156,7 +180,9 @@ var GlobalState = /** @class */ (function () {
                         var fn_1 = function () {
                             var _a;
                             (_a = methods_1.onChange) === null || _a === void 0 ? void 0 : _a.call(methods_1, _this, propsChanged_1);
-                            caller_1.forEach(function (x) { return x.e.data(_this, x.props); });
+                            caller_1.forEach(function (x) {
+                                x.e.data(_this, x.props);
+                            });
                             hooks_1.forEach(function (x) {
                                 x.data(x.counter + 1);
                             });
@@ -330,22 +356,24 @@ var GlobalState = /** @class */ (function () {
         try {
             var rAny = React;
             var ref_1 = rAny.useRef(0);
-            var events = this.getProp().events;
+            var events_2 = this.getProp().events;
             if (ref_1.current === 0) {
                 ref_1.current = uid();
                 var event_1 = new Identifier(ref_1.current, function (item, props) {
+                    var _a;
                     try {
+                        (_a = events_2.find(function (x) { return x.id == event_1.id; })) === null || _a === void 0 ? void 0 : _a.bind(_this);
                         func(item, props);
                     }
                     catch (e) {
                         console.error(e);
                     }
                 }, 0, items);
-                if (!events.find(function (x) { return x.id == event_1.id; }))
-                    events.push(event_1);
+                if (!events_2.find(function (x) { return x.id == event_1.id; }))
+                    events_2.push(event_1.bind(this));
             }
             else {
-                var e = events.find(function (x) { return x.id === ref_1.current; });
+                var e = events_2.find(function (x) { return x.id === ref_1.current; });
                 if (e)
                     e.data = func;
             }
@@ -355,7 +383,7 @@ var GlobalState = /** @class */ (function () {
                     ids["delete"](ref_1.current);
                 };
             }, []);
-            return events.find(function (x) { return x.id == ref_1.current; });
+            return events_2.find(function (x) { return x.id == ref_1.current; });
         }
         catch (e) {
             console.error(e);
@@ -387,7 +415,9 @@ var GlobalState = /** @class */ (function () {
                 ref_2.current = uid();
             }
             this.addHook(new Identifier(ref_2.current, function (v) {
+                var _a;
                 try {
+                    (_a = _this.getProp().hooks.find(function (x) { return x.id == ref_2.current; })) === null || _a === void 0 ? void 0 : _a.bind(_this);
                     setCounter_1(v);
                 }
                 catch (e) {
@@ -431,8 +461,8 @@ var GlobalState = /** @class */ (function () {
                     cEvents.push({ props: [], e: e });
             }
         };
-        for (var _b = 0, events_2 = events; _b < events_2.length; _b++) {
-            var e = events_2[_b];
+        for (var _b = 0, events_3 = events; _b < events_3.length; _b++) {
+            var e = events_3[_b];
             _loop_3(e);
         }
         for (var _c = 0, hooks_2 = hooks; _c < hooks_2.length; _c++) {
@@ -470,7 +500,7 @@ var GlobalState = /** @class */ (function () {
             }
         }
         if (addValue)
-            items.push(value);
+            items.push(value.bind(this));
     };
     GlobalState.prototype.removeHook = function (value) {
         var item = this.getProp().hooks;

@@ -15,15 +15,14 @@ const __ignoreKeys = [
 ];
 
 const readFromKey = function (str: string, item: any): any {
-  const keys = str.split(".").filter(x => x.length > 0);
+  const keys = str.split('.').filter((x) => x.length > 0);
   let currentItem = item;
-  keys.forEach(x => {
-    if (currentItem !== undefined)
-      currentItem = currentItem[x];
-  })
+  keys.forEach((x) => {
+    if (currentItem !== undefined) currentItem = currentItem[x];
+  });
 
   return currentItem;
-}
+};
 
 type NestedKeyOf<
   T extends object,
@@ -46,6 +45,7 @@ class Identifier<T extends object> implements IIdentifier {
   counter: number;
   cols?: NestedKeyOf<T>[];
   identifier?: string;
+  bindValues: Map<NestedKeyOf<T>, any>;
   constructor(
     id: string,
     data: T,
@@ -58,6 +58,20 @@ class Identifier<T extends object> implements IIdentifier {
     this.counter = counter;
     this.cols = cols && cols.length > 0 ? cols : undefined;
     this.identifier = identifier;
+    this.bindValues = new Map();
+  }
+
+  bind(item: any) {
+    this.bindValues.clear();
+    if (this.cols)
+      this.cols.forEach((x: any) => {
+        if (x.indexOf('.') !== -1) {
+          const value = readFromKey(x, item);
+          if (!(typeof value == 'object' || typeof value == 'function'))
+            this.bindValues.set(x, value);
+        }
+      });
+    return this;
   }
 
   addIdentifier(identifier: string) {
@@ -131,6 +145,7 @@ class GlobalState<T extends object> {
     return toJSON(this);
   }
 
+
   subscribe(
     func: (item: T, props: ValueChange[]) => void,
     ...items: NestedKeyOf<T>[]
@@ -145,6 +160,7 @@ class GlobalState<T extends object> {
           ref.current,
           (item: T, props: ValueChange[]) => {
             try {
+              events.find((x) => x.id == event.id)?.bind(this);
               func(item, props);
             } catch (e) {
               console.error(e);
@@ -153,7 +169,8 @@ class GlobalState<T extends object> {
           0,
           items as any
         );
-        if (!events.find((x) => x.id == event.id)) events.push(event);
+        if (!events.find((x) => x.id == event.id))
+          events.push(event.bind(this));
       } else {
         const e = events.find((x) => x.id === ref.current);
         if (e) e.data = func;
@@ -179,9 +196,9 @@ class GlobalState<T extends object> {
     this.subscribe(() => {
       const value = readFromKey(col, this);
       if (func(value)) {
-        setCounter(counter + 1)
+        setCounter(counter + 1);
       }
-    }, col)
+    }, col);
   }
 
   hook(...items: NestedKeyOf<T>[]) {
@@ -197,6 +214,7 @@ class GlobalState<T extends object> {
           ref.current,
           (v: number) => {
             try {
+              this.getProp().hooks.find((x) => x.id == ref.current)?.bind(this);
               setCounter(v);
             } catch (e) {
               console.warn('Component is unmounted');
@@ -280,7 +298,7 @@ class GlobalState<T extends object> {
         break;
       }
 
-    if (addValue) items.push(value);
+    if (addValue) items.push(value.bind(this));
   }
 
   private removeHook(value: string) {
@@ -334,17 +352,28 @@ class GlobalState<T extends object> {
             propsChanged.push(prop);
             if (!methods.disableTimer) clearTimeout(timer);
             const events = methods.events;
-            const keyIncluded = (cols: string[]) => {
-              for (let c of cols) {
+            const diffValues = (e: Identifier<Function>, key0: string) => {
+              const n = readFromKey(key0, this);
+              if (!e.bindValues.has(key0 as any)) return false;
+              if (e.bindValues.get(key0 as any) !== n) return true;
+              return false;
+            };
+            const keyIncluded = (e: Identifier<Function>) => {
+              for (let c of e.cols || []) {
                 if (c === key) return true;
-                if (c.indexOf('.') != -1 && c.indexOf(key) != -1) return true;
-                if (key.indexOf(".") != -1 && key.indexOf(c) != -1) return true;
+                if (
+                  c.indexOf('.') != -1 &&
+                  c.indexOf(key) != -1 &&
+                  diffValues(e, c)
+                )
+                  return true;
+                if (key.indexOf('.') != -1 && key.indexOf(c) != -1) return true;
               }
               return false;
             };
             for (const e of events) {
               let add = true;
-              if (e.cols && !keyIncluded(e.cols)) {
+              if (e.cols && !keyIncluded(e)) {
                 add = false;
               }
               if (add) {
@@ -356,7 +385,7 @@ class GlobalState<T extends object> {
 
             for (const e of methods.hooks) {
               let add = true;
-              if (e.cols && !keyIncluded(e.cols)) {
+              if (e.cols && !keyIncluded(e)) {
                 add = false;
               }
               if (add) hooks.push(e);
@@ -364,7 +393,9 @@ class GlobalState<T extends object> {
 
             const fn = () => {
               methods.onChange?.(this, propsChanged);
-              caller.forEach((x) => x.e.data(this, x.props));
+              caller.forEach((x) => {
+                x.e.data(this, x.props);
+              });
               hooks.forEach((x) => {
                 x.data(x.counter + 1);
               });
