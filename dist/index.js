@@ -22,6 +22,15 @@ var __ignoreKeys = [
     'getProp',
     'stringify',
 ];
+var readFromKey = function (str, item) {
+    var keys = str.split(".").filter(function (x) { return x.length > 0; });
+    var currentItem = item;
+    keys.forEach(function (x) {
+        if (currentItem !== undefined)
+            currentItem = currentItem[x];
+    });
+    return currentItem;
+};
 var Identifier = /** @class */ (function () {
     function Identifier(id, data, counter, cols, identifier) {
         this.id = id;
@@ -352,6 +361,17 @@ var GlobalState = /** @class */ (function () {
             console.error(e);
             throw e;
         }
+    };
+    GlobalState.prototype.on = function (col, func) {
+        var _this = this;
+        var rAny = React;
+        var _a = rAny.useState(0), counter = _a[0], setCounter = _a[1];
+        this.subscribe(function () {
+            var value = readFromKey(col, _this);
+            if (func(value)) {
+                setCounter(counter + 1);
+            }
+        }, col);
     };
     GlobalState.prototype.hook = function () {
         var _this = this;

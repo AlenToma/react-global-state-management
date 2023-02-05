@@ -1,6 +1,6 @@
 {
   "name": "react-global-state-management",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Global statemanagement with subscribing events and custom hooks",
   "author": "AlenToma",
   "license": "MIT",

@@ -14,6 +14,17 @@ const __ignoreKeys = [
   'stringify',
 ];
 
+const readFromKey = function (str: string, item: any): any {
+  const keys = str.split(".").filter(x => x.length > 0);
+  let currentItem = item;
+  keys.forEach(x => {
+    if (currentItem !== undefined)
+      currentItem = currentItem[x];
+  })
+
+  return currentItem;
+}
+
 type NestedKeyOf<
   T extends object,
   D extends any[] = [0, 0, 0, 0, 0]
@@ -90,6 +101,7 @@ export type IGlobalState<T extends object> = {
     ...cols: NestedKeyOf<T>[]
   ) => IIdentifier;
   hook: (...cols: NestedKeyOf<T>[]) => IIdentifier;
+  on: <A extends any>(col: NestedKeyOf<T>, func: (item: A) => boolean) => void;
   stringify: () => string;
   triggerChange: (toOnChange?: boolean, ...identifier: string[]) => void;
 };
@@ -159,6 +171,17 @@ class GlobalState<T extends object> {
       console.error(e);
       throw e;
     }
+  }
+
+  on<A extends any>(col: NestedKeyOf<T>, func: (item: A) => boolean) {
+    const rAny = React as any;
+    const [counter, setCounter] = rAny.useState(0);
+    this.subscribe(() => {
+      const value = readFromKey(col, this);
+      if (func(value)) {
+        setCounter(counter + 1)
+      }
+    }, col)
   }
 
   hook(...items: NestedKeyOf<T>[]) {

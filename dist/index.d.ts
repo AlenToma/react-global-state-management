@@ -7,6 +7,7 @@ type IIdentifier = {
 export type IGlobalState<T extends object> = {
     subscribe: (func: (item: T, props: ValueChange[]) => void, ...cols: NestedKeyOf<T>[]) => IIdentifier;
     hook: (...cols: NestedKeyOf<T>[]) => IIdentifier;
+    on: <A extends any>(col: NestedKeyOf<T>, func: (item: A) => boolean) => void;
     stringify: () => string;
     triggerChange: (toOnChange?: boolean, ...identifier: string[]) => void;
 };

@@ -87,6 +87,11 @@ Rebuild the component when a change happened
 ```js
 hook() OR hook("item.counter", ...)
 ```
+Rebuild the component with conditions
+```js
+on<boolean>("item.enabled", (value)=> value === true)
+```
+
 
 `Subscribe` to changes when the global data change. This works like useEffect except You will have more control over your updates and this will not trigger rebuild
 ```js
@@ -113,7 +118,8 @@ data.subscribe(
 | ------------- | ------------- |
 | hook  | event that bind properties to the components so that when changes happend a rebuild happend in component  |
 | subscribe  | event work as useeffect without rerendering the component  |
-| execludeComponentsFromMutations  | args that is passed to the global data that execlude some properties from herarkie binding|
+| on  | create a hook that trigger rebuild on conditions that you specify |
+| execludeComponentsFromMutations  | args that is passed to the global data that execlude some properties from herarkie binding(the library create `set` and `get` for each property. And this is done herarkie. You can execlude objects from this. eg objects and not (number, boolean,string) propeties)|
 | disableTimer  | The library create a `settimeout` for each changes so that when two changes happend at the same time only one call will be triggered. You can disable this and trigger a call after each change directly, this is usefull when using it in games.  |
 | onChange  | You can use this prop outside components, as `subscribe` and `hooks` can only be used in components  |
 | stringify  | This solve the self refrences issue when parsing the object to json string  |
