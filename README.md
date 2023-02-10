@@ -125,7 +125,7 @@ data.subscribe(
 | stringify  | This solve the self refrences issue when parsing the object to json string  |
 | triggerChange  | Sometimes you are using props in components that do not have `hooks` or `subscribe`, using this method you could trigger updates to those components by specifing thair Identifiers|
 
-## exelude objects in array
+## Exelude objects in array
 typescript will complain when you add a path in `execludeComponentsFromMutations` as it only take object path.
 to solve this issue, you are able to assign a method `execludeComponentsFromMutations` that return `true` if it execluded and `false` if not
 ```js
