@@ -126,8 +126,8 @@ data.subscribe(
 | triggerChange  | Sometimes you are using props in components that do not have `hooks` or `subscribe`, using this method you could trigger updates to those components by specifing thair Identifiers|
 
 ## Exelude objects in array
-Typescript will complain when you add a path in `execludeComponentsFromMutations` as it only take object path.
-to solve this issue, you are able to assign a method `execludeComponentsFromMutations` that return `true` if it execluded and `false` if not
+Typescript will complain when you add a path that is contained in array, as `execludeComponentsFromMutations` only take object path in its array.
+To solve this issue, you are able to assign a method to `execludeComponentsFromMutations` that return `true` if it execluded and `false` if not
 ```js
   const data = GlobalState({
   text: 'someText',
