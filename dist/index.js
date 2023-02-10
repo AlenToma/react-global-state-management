@@ -72,7 +72,7 @@ var Methods = /** @class */ (function () {
     function Methods(disableTimer, onChange) {
         this.events = [];
         this.hooks = [];
-        this.execludedKeys = [];
+        this.execludedKeys = undefined;
         this.disableTimer = disableTimer;
         this.onChange = onChange;
         this.keyType = new Map();
@@ -105,15 +105,21 @@ var GlobalState = /** @class */ (function () {
                     return parentKey + '.' + key;
                 return key;
             };
-            var readablePrKey_1 = function (key) { return prKey_1(key).replace(/\./g, ''); };
-            var readableParentKey_1 = function (key) {
-                if (key.indexOf('.') != -1)
+            var readablePrKey_1 = function (key, clean) {
+                if (clean !== false)
+                    return prKey_1(key).replace(/\./g, '');
+                else
+                    return prKey_1(key);
+            };
+            var readableParentKey_1 = function (key, clean) {
+                if (key.indexOf('.') != -1) {
                     return key
                         .split('.')
                         .reverse()
                         .filter(function (_, i) { return i > 0; })
                         .reverse()
-                        .join();
+                        .join(clean !== false ? undefined : '.');
+                }
                 return '';
             };
             var timer_1 = undefined;
@@ -243,8 +249,14 @@ var GlobalState = /** @class */ (function () {
                 if (execludedKeys === undefined)
                     r = false;
                 else {
-                    if (execludedKeys.includes(readablePrKey_1(key)) ||
-                        execludedKeys.includes(readableParentKey_1(key)))
+                    if (Array.isArray(execludedKeys)) {
+                        if (execludedKeys.includes(readablePrKey_1(key)) ||
+                            execludedKeys.includes(readableParentKey_1(key)))
+                            r = true;
+                    }
+                    else if ((readablePrKey_1(key) != '' && execludedKeys(readablePrKey_1(key, false))))
+                        r = true;
+                    else if ((readableParentKey_1(key) != '' && execludedKeys(readableParentKey_1(key, false))))
                         r = true;
                 }
                 return r;
@@ -417,7 +429,8 @@ var GlobalState = /** @class */ (function () {
             this.addHook(new Identifier(ref_2.current, function (v) {
                 var _a;
                 try {
-                    (_a = _this.getProp().hooks.find(function (x) { return x.id == ref_2.current; })) === null || _a === void 0 ? void 0 : _a.bind(_this);
+                    (_a = _this.getProp()
+                        .hooks.find(function (x) { return x.id == ref_2.current; })) === null || _a === void 0 ? void 0 : _a.bind(_this);
                     setCounter_1(v);
                 }
                 catch (e) {
@@ -535,7 +548,9 @@ export default (function (item, execludeComponentsFromMutations, disableTimer, o
     var methods = new Methods(disableTimer !== null && disableTimer !== void 0 ? disableTimer : false, onChange);
     __Properties.set(id, methods);
     methods.execludedKeys = execludeComponentsFromMutations
-        ? getColumns(('function ' + execludeComponentsFromMutations))
+        ? Array.isArray(execludeComponentsFromMutations)
+            ? getColumns(('function ' + execludeComponentsFromMutations))
+            : execludeComponentsFromMutations
         : [];
     return new GlobalState(item, id);
 });

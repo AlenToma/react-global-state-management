@@ -91,7 +91,10 @@ const uid = (sId?: any): string => {
 class Methods {
   events = [] as Identifier<Function>[];
   hooks = [] as Identifier<Function>[];
-  execludedKeys = [] as string[];
+  execludedKeys = undefined as
+    | string[]
+    | ((key: string) => boolean)
+    | undefined;
   disableTimer: boolean;
   onChange?: (item: any, props: ValueChange[]) => void;
   keyType: Map<string, string>;
@@ -144,7 +147,6 @@ class GlobalState<T extends object> {
   stringify() {
     return toJSON(this);
   }
-
 
   subscribe(
     func: (item: T, props: ValueChange[]) => void,
@@ -214,7 +216,9 @@ class GlobalState<T extends object> {
           ref.current,
           (v: number) => {
             try {
-              this.getProp().hooks.find((x) => x.id == ref.current)?.bind(this);
+              this.getProp()
+                .hooks.find((x) => x.id == ref.current)
+                ?.bind(this);
               setCounter(v);
             } catch (e) {
               console.warn('Component is unmounted');
@@ -326,16 +330,20 @@ class GlobalState<T extends object> {
         return key;
       };
 
-      const readablePrKey = (key: string) => prKey(key).replace(/\./g, '');
+      const readablePrKey = (key: string, clean?: boolean) => {
+        if (clean !== false) return prKey(key).replace(/\./g, '');
+        else return prKey(key);
+      };
 
-      const readableParentKey = (key: string) => {
-        if (key.indexOf('.') != -1)
+      const readableParentKey = (key: string, clean?: boolean) => {
+        if (key.indexOf('.') != -1) {
           return key
             .split('.')
             .reverse()
             .filter((_, i) => i > 0)
             .reverse()
-            .join();
+            .join(clean !== false ? undefined : '.');
+        }
         return '';
       };
 
@@ -455,11 +463,19 @@ class GlobalState<T extends object> {
 
         if (execludedKeys === undefined) r = false;
         else {
-          if (
-            execludedKeys.includes(readablePrKey(key)) ||
-            execludedKeys.includes(readableParentKey(key))
-          )
-            r = true;
+          if (Array.isArray(execludedKeys)) {
+            if (
+              execludedKeys.includes(readablePrKey(key)) ||
+              execludedKeys.includes(readableParentKey(key))
+            )
+              r = true;
+          } else
+            if ((readablePrKey(key) != '' && execludedKeys(readablePrKey(key, false))))
+              r = true;
+            else
+              if ((readableParentKey(key) != '' && execludedKeys(readableParentKey(key, false))))
+                r = true
+
         }
         return r;
       };
@@ -608,7 +624,9 @@ const getColumns = (fn: Function, skipFirst?: boolean) => {
 
 export default <T extends object>(
   item: T,
-  execludeComponentsFromMutations?: NestedKeyOf<T>[],
+  execludeComponentsFromMutations?:
+    | NestedKeyOf<T>[]
+    | ((path: NestedKeyOf<T> | string) => boolean),
   disableTimer?: boolean,
   onChange?: (item: any, props: ValueChange[]) => void
 ) => {
@@ -616,7 +634,9 @@ export default <T extends object>(
   const methods = new Methods(disableTimer ?? false, onChange);
   __Properties.set(id, methods);
   methods.execludedKeys = execludeComponentsFromMutations
-    ? getColumns(('function ' + execludeComponentsFromMutations) as any)
+    ? Array.isArray(execludeComponentsFromMutations)
+      ? getColumns(('function ' + execludeComponentsFromMutations) as any)
+      : execludeComponentsFromMutations
     : [];
   return new GlobalState<T>(item, id) as any as T & IGlobalState<T>;
 };
