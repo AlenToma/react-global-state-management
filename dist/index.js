@@ -21,6 +21,7 @@ var __ignoreKeys = [
     'triggerChange',
     'getProp',
     'stringify',
+    'on'
 ];
 var readFromKey = function (str, item) {
     var keys = str.split('.').filter(function (x) { return x.length > 0; });

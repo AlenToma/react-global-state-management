@@ -12,6 +12,7 @@ const __ignoreKeys = [
   'triggerChange',
   'getProp',
   'stringify',
+  'on'
 ];
 
 const readFromKey = function (str: string, item: any): any {
