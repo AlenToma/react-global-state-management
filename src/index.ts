@@ -443,7 +443,7 @@ class GlobalState<T extends object> {
                 typeof x === 'object' &&
                 !Array.isArray(x) &&
                 typeof x !== 'string' &&
-                !isExecluded(key)
+                !isExecluded(key) && !x.isGlobalState
               ) {
                 alreadyCloned.set(x, x);
                 alreadyCloned.set(
@@ -634,10 +634,16 @@ export default <T extends object>(
   const id = uid();
   const methods = new Methods(disableTimer ?? false, onChange);
   __Properties.set(id, methods);
-  methods.execludedKeys = execludeComponentsFromMutations
-    ? Array.isArray(execludeComponentsFromMutations)
-      ? getColumns(('function ' + execludeComponentsFromMutations) as any)
-      : execludeComponentsFromMutations
+  methods.execludedKeys = execludeComponentsFromMutations ? Array.isArray(execludeComponentsFromMutations)
+    ? getColumns(('function ' + execludeComponentsFromMutations) as any)
+    : execludeComponentsFromMutations
     : [];
+  // this is to make sure i did not miss anything
+  // todo: should be moved outside and run only once
+  Object.getOwnPropertyNames(GlobalState.prototype).forEach(x => {
+    if (!__ignoreKeys.includes(x) && x !== "constructor") {
+      __ignoreKeys.push(x);
+    }
+  })
   return new GlobalState<T>(item, id) as any as T & IGlobalState<T>;
 };

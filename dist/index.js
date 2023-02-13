@@ -230,7 +230,7 @@ var GlobalState = /** @class */ (function () {
                             if (typeof x === 'object' &&
                                 !Array.isArray(x) &&
                                 typeof x !== 'string' &&
-                                !isExecluded_1(key)) {
+                                !isExecluded_1(key) && !x.isGlobalState) {
                                 alreadyCloned.set(x, x);
                                 alreadyCloned.set(x, new GlobalState(x, id, trigger, key, alreadyCloned));
                                 r.push(alreadyCloned.get(x));
@@ -548,11 +548,17 @@ export default (function (item, execludeComponentsFromMutations, disableTimer, o
     var id = uid();
     var methods = new Methods(disableTimer !== null && disableTimer !== void 0 ? disableTimer : false, onChange);
     __Properties.set(id, methods);
-    methods.execludedKeys = execludeComponentsFromMutations
-        ? Array.isArray(execludeComponentsFromMutations)
-            ? getColumns(('function ' + execludeComponentsFromMutations))
-            : execludeComponentsFromMutations
+    methods.execludedKeys = execludeComponentsFromMutations ? Array.isArray(execludeComponentsFromMutations)
+        ? getColumns(('function ' + execludeComponentsFromMutations))
+        : execludeComponentsFromMutations
         : [];
+    // this is to make sure i did not miss anything
+    // todo: should be moved outside and run only once
+    Object.getOwnPropertyNames(GlobalState.prototype).forEach(function (x) {
+        if (!__ignoreKeys.includes(x) && x !== "constructor") {
+            __ignoreKeys.push(x);
+        }
+    });
     return new GlobalState(item, id);
 });
 //# sourceMappingURL=index.js.map
